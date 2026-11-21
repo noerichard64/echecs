@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<title>Échecs contre les bots</title>
+<title>San Andreas Chess Federation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
@@ -130,6 +130,11 @@ h2{font-size:17px;margin:22px 0 10px}
 .slot small{display:block;color:var(--mute);font-size:12px}
 .say span button{margin:4px 6px 0 0;min-height:34px;border:0;border-radius:8px;padding:0 10px;font-weight:700;background:var(--brass);color:#1b1611}
 .say span button.no{background:var(--panel);color:var(--ink)}
+
+.av.sm{width:34px;height:34px;font-size:13px}
+.who{display:flex;align-items:center;gap:10px;min-width:0}
+.me-av{width:58px;height:58px;border:0;font-size:20px;cursor:pointer;flex:none;padding:0}
+.av{background-size:cover;background-position:center}
 @media (prefers-reduced-motion:no-preference){.say span{animation:pop .25s ease-out}@keyframes pop{from{transform:scale(.85);opacity:0}}}
 </style>
 </head>
@@ -137,7 +142,7 @@ h2{font-size:17px;margin:22px 0 10px}
 
 
 <div id="login" class="wrap screen hidden">
-  <h1>Échecs contre les bots</h1>
+  <h1>San Andreas Chess Federation</h1>
   <p class="sub">Entre ton pseudo. Ta progression est sauvegardée en ligne et visible dans le classement.</p>
   <form id="loginForm" autocomplete="off">
     <label class="field"><span>Pseudo</span><input id="lgNom" maxlength="24" placeholder="Ton pseudo" autocapitalize="words"></label>
@@ -180,10 +185,10 @@ h2{font-size:17px;margin:22px 0 10px}
 </div>
 
 <div id="menu" class="wrap screen hidden">
-  <h1>Échecs contre les bots</h1>
-  <p class="sub">Du bot à 1 Elo jusqu'au Grand Maître.</p>
-  <div class="me"><div><small id="myName">Ton classement</small><b id="myElo">800</b></div><div id="myRec" style="margin-left:auto;text-align:right;color:var(--mute);font-size:14px"></div></div>
-  <div class="mebtns" id="meBtns"><button id="bBoard">Classement</button><button id="bLogout">Changer de profil</button></div>
+  <h1>San Andreas Chess Federation</h1>
+  <p class="sub">La fédération d'échecs de San Andreas : 8 bots, des joueurs en ligne et un classement officiel.</p>
+  <div class="me"><button class="av me-av" id="myAv" aria-label="Photo de profil"></button><div><small id="myName">Ton classement</small><b id="myElo">800</b></div><div id="myRec" style="margin-left:auto;text-align:right;color:var(--mute);font-size:14px"></div></div>
+  <div class="mebtns" id="meBtns"><button id="bBoard">Classement</button><button id="bPhoto">Photo</button><button id="bLogout">Déconnexion</button></div>
   <button class="btn2 hl" id="bOnline">Jouer contre un vrai joueur</button>
   <h2>Adversaire</h2>
   <div class="bots" id="botList"></div>
@@ -225,6 +230,16 @@ h2{font-size:17px;margin:22px 0 10px}
   <button class="big" id="bAgain">Rejouer</button>
   <button class="alt" id="bOther">Changer d'adversaire</button>
   <button class="alt" id="bLook">Voir l'échiquier</button>
+</div></div>
+
+<div id="photoModal" class="modal hidden"><div class="card">
+  <h3 style="font-size:22px">Photo de profil</h3>
+  <div class="av" id="phPrev" style="width:110px;height:110px;margin:14px auto 6px;font-size:34px;background:var(--brass)"></div>
+  <p class="err" id="phErr"></p>
+  <button class="big" id="phPick">Choisir une photo</button>
+  <button class="alt" id="phDel">Retirer la photo</button>
+  <button class="alt" id="phClose">Fermer</button>
+  <input type="file" id="phFile" accept="image/*" hidden>
 </div></div>
 
 <div id="promoModal" class="modal hidden"><div class="card">
@@ -391,7 +406,7 @@ let G,bot,userColor='w',flipped=false,sel=null,lastMove=null,hist=[],over=false,
 let clocks={w:0,b:0},inc=0,timed=false,timer=null,lastTick=0,token=0,resignArm=null,actx=null;
 
 function renderMenu(){
-  $('myElo').textContent=rating;$('myName').textContent=profile?profile.nom+' · Elo':(DB_ON?'Hors ligne · Elo':'Ton classement');$('meBtns').classList.toggle('hidden',!DB_ON);$('bOnline').classList.toggle('hidden',!DB_ON);$('bLogout').textContent=profile?'Changer de profil':'Se connecter';$('myRec').innerHTML=`${rec.w} victoires<br>${rec.d} nulles · ${rec.l} défaites`;
+  $('myElo').textContent=rating;{const a=$('myAv');a.classList.toggle('hidden',!profile);$('bPhoto').classList.toggle('hidden',!profile);if(profile){a.style.backgroundImage='';a.style.backgroundColor='var(--brass)';a.textContent=initials(profile.nom);paintAv(a,profile.nom)}}$('myName').textContent=profile?profile.nom+' · Elo':(DB_ON?'Hors ligne · Elo':'Ton classement');$('meBtns').classList.toggle('hidden',!DB_ON);$('bOnline').classList.toggle('hidden',!DB_ON);$('bLogout').textContent=profile?'Déconnexion':'Se connecter';{const pl=(n,w)=>`${n} ${w}${n>1?'s':''}`;$('myRec').innerHTML=`${pl(rec.w,'victoire')}<br>${pl(rec.d,'nulle')} · ${pl(rec.l,'défaite')}`}
   $('botList').innerHTML=BOTS.map((b,i)=>`<button class="bot${i===botI?' on':''}" data-i="${i}"><div class="av" style="background:${b.c}">${initials(b.name)}</div><div><div class="n">${b.name}</div><div class="d">${b.d}${MEMCFG[b.elo]&&profile?' Apprend de tes parties.':''}</div></div><div class="e">${b.elo}</div></button>`).join('');
   $('colSeg').innerHTML=COLS.map(([k,l])=>`<button class="${k===colC?'on':''}" data-k="${k}">${l}</button>`).join('');
   $('rkBox').classList.toggle('hidden',!profile);$('rkSeg').innerHTML=[['1','Classée'],['0','Amicale (sans Elo)']].map(([k,l])=>`<button class="${(k==='1')===ranked?'on':''}" data-k="${k}">${l}</button>`).join('');
@@ -425,7 +440,7 @@ function capStr(by){const o=opp(by),init={q:1,r:2,b:2,n:2,p:8};let s='';
   for(const t of['q','r','b','n','p']){const have=G.b.filter(p=>p&&col(p)===o&&p.toLowerCase()===t).length;s+=GLY[t].repeat(Math.max(0,init[t]-have))}
   const diff=Math.round((material(by)-material(o))/100);return s+(diff>0?` <b style="color:var(--ink)">+${diff}</b>`:'')}
 function renderPanels(){for(const[id,c]of[['plTop',flipped?'w':'b'],['plBot',flipped?'b':'w']]){const el=$(id),isBot=c!==userColor,av=el.querySelector('.av');
-  av.style.background=isBot?bot.c:'var(--brass)';av.textContent=isBot?initials(bot.name):'TOI';
+  av.style.background=isBot?bot.c:'var(--brass)';av.textContent=isBot?initials(bot.name):'TOI';if(isBot?online:profile)paintAv(av,isBot?bot.name:profile.nom);
   el.querySelector('.nm').textContent=isBot?`${bot.name} (${bot.elo})`:`${profile?profile.nom:'Toi'} (${rating})`;el.querySelector('.cap').innerHTML=capStr(c)}}
 function renderBoard(){const from=sel!==null?G.moves().filter(m=>m.f===sel):[],chk=G.inCheck()?G.kingSq(G.turn):-1;let h='';
   for(let v=0;v<64;v++){const i=flipped?63-v:v,r=i>>3,c=i&7;let cls='sq '+((r+c)%2?'d':'l');
@@ -558,7 +573,7 @@ function applyStats(s){rating=s.elo;rec={w:s.victoires,d:s.nulles,l:s.defaites};
 function show(id){for(const s of['login','menu','ranking','game','lobby','room'])$(s).classList.toggle('hidden',s!==id);if(typeof presence==='function'&&presTimer)setTimeout(presence,50)}
 function goMenu(){if(typeof stopOnline==='function')stopOnline();if(online){online=null;bot=BOTS[botI]}$('bAgain').textContent='Rejouer';show('menu');renderMenu()}
 async function doLogin(nom,pin,silent){$('lgErr').textContent='';$('lgBtn').disabled=true;$('lgBtn').textContent='Connexion…';
-  try{const s=await rpc('connexion',{p_nom:nom,p_pin:pin});profile={nom:s.nom,pin};applyStats(s);LS.set('ech_prof',{nom:s.nom,pin});goMenu()}
+  try{const s=await rpc('connexion',{p_nom:nom,p_pin:pin});profile={nom:s.nom,pin};applyStats(s);loadAvatars([s.nom]).then(()=>{if(!$('menu').classList.contains('hidden'))renderMenu()});LS.set('ech_prof',{nom:s.nom,pin});goMenu()}
   catch(e){if(silent){show('login');$('lgNom').value=nom}$('lgErr').textContent=e.message||'Erreur de connexion.'}
   finally{$('lgBtn').disabled=false;$('lgBtn').textContent='Se connecter'}}
 $('loginForm').addEventListener('submit',e=>{e.preventDefault();doLogin($('lgNom').value,$('lgPin').value.trim())});
@@ -566,7 +581,7 @@ $('lgOffline').addEventListener('click',()=>{profile=null;loadPrefs();goMenu()})
 function logout(){profile=null;LS.set('ech_prof',null);$('lgPin').value='';loadPrefs();show('login')}
 async function openBoard(){show('ranking');$('lbErr').textContent='';$('lbList').innerHTML='<p class="note">Chargement…</p>';
   try{const rows=await rpc('classement',{p_limite:100});
-    $('lbList').innerHTML=rows&&rows.length?rows.map(r=>`<div class="lbr${profile&&r.nom.toLowerCase()===profile.nom.toLowerCase()?' me2':''}"><div class="rk">${r.rang}</div><div><div class="nm2">${esc(r.nom)}</div><div class="st">${r.victoires} V · ${r.nulles} N · ${r.defaites} D${r.meilleure_victoire?` · a battu ${r.meilleure_victoire}`:''}</div></div><div class="el">${r.elo}</div></div>`).join(''):'<p class="note">Personne n\'a encore joué de partie classée. À toi de jouer !</p>'}
+    $('lbList').innerHTML=rows&&rows.length?rows.map(r=>`<div class="lbr${profile&&r.nom.toLowerCase()===profile.nom.toLowerCase()?' me2':''}"><div class="rk">${r.rang}</div><div class="who"><div class="av sm" style="background-color:#8fb3ff" data-av="${esc(r.nom)}">${esc(initials(r.nom))}</div><div style="min-width:0"><div class="nm2">${esc(r.nom)}</div><div class="st">${r.victoires} V · ${r.nulles} N · ${r.defaites} D${r.meilleure_victoire?` · a battu ${r.meilleure_victoire}`:''}</div></div></div><div class="el">${r.elo}</div></div>`).join(''):'<p class="note">Personne n\'a encore joué de partie classée. À toi de jouer !</p>';if(rows&&rows.length)paintAvatars($('lbList'),rows.map(r=>r.nom))}
   catch(e){$('lbList').innerHTML='';$('lbErr').textContent=e.message}}
 $('lbBack').addEventListener('click',goMenu);$('lbRefresh').addEventListener('click',openBoard);
 async function saveGame(res,classee=true,why=''){if(!profile)return null;const t=TC[tcI];
@@ -594,8 +609,8 @@ async function refreshLobby(){try{const rows=await rpc('lister_parties',{});$('o
     const mine=profile.nom.toLowerCase();
     $('obList').innerHTML=rows&&rows.length?rows.map(r=>{const me=r.hote.toLowerCase()===mine;
       const col=r.couleur_choisie==='w'?'Tu joues les Noirs':r.couleur_choisie==='b'?'Tu joues les Blancs':'Couleurs au hasard';
-      return `<div class="lbr"><div class="rk">♟</div><div><div class="nm2">${esc(r.hote)} (${r.hote_elo})</div><div class="st">${tcLabel(r.minutes,r.increment)} · ${r.classee?'Classée':'Amicale'} · ${col}</div></div>${me?'<small class="st">Ta partie</small>':`<button class="join" data-id="${r.id}">Rejoindre</button>`}</div>`}).join('')
-      :'<p class="note">Aucune partie en attente pour l\'instant. Crée la tienne !</p>'}
+      return `<div class="lbr"><div class="av sm" style="background-color:#8fb3ff" data-av="${esc(r.hote)}">${esc(initials(r.hote))}</div><div><div class="nm2">${esc(r.hote)} (${r.hote_elo})</div><div class="st">${tcLabel(r.minutes,r.increment)} · ${r.classee?'Classée':'Amicale'} · ${col}</div></div>${me?'<small class="st">Ta partie</small>':`<button class="join" data-id="${r.id}">Rejoindre</button>`}</div>`}).join('')
+      :'<p class="note">Aucune partie en attente pour l\'instant. Crée la tienne !</p>';if(rows&&rows.length)paintAvatars($('obList'),rows.map(r=>r.hote))}
   catch(e){$('obErr').textContent=e.message}}
 $('obList').addEventListener('click',async e=>{const b=e.target.closest('.join');if(!b)return;b.disabled=true;
   try{const s=await rpc('rejoindre_partie',{...auth(),p_id:b.dataset.id});enterRoom(s)}catch(err){$('obErr').textContent=err.message;refreshLobby()}});
@@ -605,12 +620,12 @@ $('obCreate').addEventListener('click',async()=>{const t=TC[onTc];$('obCreate').
 $('obBack').addEventListener('click',()=>{stopOnline();goMenu()});
 
 function enterRoom(s){stopOnline();roomId=s.id;show('room');$('rmErr').textContent='';renderRoom(s);roomTimer=setInterval(pollRoom,1500)}
-function slot(nom,elo,role){return nom?`<div class="slot"><div class="av" style="background:${role==='Hôte'?'var(--brass)':'#8fb3ff'}">${esc(initials(nom))}</div><div><b>${esc(nom)}</b> (${elo})<small>${role}</small></div></div>`
+function slot(nom,elo,role){return nom?`<div class="slot"><div class="av" data-av="${esc(nom)}" style="background-color:${role==='Hôte'?'var(--brass)':'#8fb3ff'}">${esc(initials(nom))}</div><div><b>${esc(nom)}</b> (${elo})<small>${role}</small></div></div>`
   :`<div class="slot"><div class="av" style="background:var(--panel2)">?</div><div class="wait">En attente d'un adversaire…</div></div>`}
 function renderRoom(s){
   const col=s.couleur_choisie==='r'?'couleurs au hasard':`l'hôte joue les ${s.couleur_choisie==='w'?'Blancs':'Noirs'}`;
   $('rmInfo').textContent=`${tcLabel(s.minutes,s.increment)} · ${s.classee?'Partie classée':'Partie amicale'} · ${col}`;
-  $('rmSlots').innerHTML=slot(s.hote,s.hote_elo,'Hôte')+slot(s.invite,s.invite_elo,'Adversaire');
+  $('rmSlots').innerHTML=slot(s.hote,s.hote_elo,'Hôte')+slot(s.invite,s.invite_elo,'Adversaire');paintAvatars($('rmSlots'),[s.hote,s.invite]);
   $('rmStart').disabled=s.statut!=='prete';$('rmStart').textContent=s.statut==='prete'?'Lancer la partie':'En attente d\'un adversaire…'}
 async function pollRoom(){if(!roomId)return;try{const s=await rpc('etat_partie',{...auth(),p_id:roomId});
     if(s.statut==='en_cours')return startOnlineGame(s);
@@ -634,7 +649,7 @@ function startOnlineGame(s){stopOnline();roomId=null;
   userColor=s.ma_couleur;flipped=userColor==='b';timed=s.minutes>0;inc=s.increment;
   rebuild(s.coups);syncClocks();$('endModal').classList.add('hidden');show('game');
   say(`Partie ${s.classee?'classée':'amicale'} contre ${esc(bot.name)}. Bonne chance !`);
-  renderAll();clearInterval(timer);timer=setInterval(tick,100);roomTimer=setInterval(pollGame,1200)}
+  renderAll();loadAvatars([bot.name,profile.nom]).then(()=>{if(online)renderPanels()});clearInterval(timer);timer=setInterval(tick,100);roomTimer=setInterval(pollGame,1200)}
 function syncClocks(){if(!online||!timed)return;const s=online.st;if(s.statut!=='en_cours'&&s.statut!=='finie')return;
   const run=s.statut==='en_cours',el=run?Math.max(0,Date.now()+online.offset-s.dernier_coup_le):0,t=s.coups.length%2===0?'w':'b';
   clocks.w=Math.max(0,s.temps_blanc-(t==='w'?el:0));clocks.b=Math.max(0,s.temps_noir-(t==='b'?el:0))}
@@ -707,6 +722,31 @@ function presence(){if(!DB_ON)return;let a='menu',d=null;
   else if(!$('room').classList.contains('hidden')||!$('lobby').classList.contains('hidden'))a='salon';
   rpc('signaler_presence',{p_session:SESSION,p_nom:profile?profile.nom:null,p_pin:profile?profile.pin:null,p_activite:a,p_detail:d}).catch(()=>{})}
 function startPresence(){if(!DB_ON||presTimer)return;presence();presTimer=setInterval(presence,30000)}
+
+
+/* ---------- photos de profil ---------- */
+const avCache=new Map(),AV_OK=/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/;
+async function loadAvatars(names){if(!DB_ON)return;const now=Date.now();
+  const need=[...new Set((names||[]).filter(Boolean).map(n=>n.toLowerCase()))].filter(n=>{const c=avCache.get(n);return !c||now-c.t>300000});
+  if(!need.length)return;try{const r=await rpc('avatars',{p_noms:need});need.forEach(n=>avCache.set(n,{v:null,t:now}));
+    for(const k in (r||{}))avCache.set(k.toLowerCase(),{v:r[k],t:now})}catch(e){}}
+function avOf(name){const c=name&&avCache.get(name.toLowerCase());return c&&c.v&&AV_OK.test(c.v)?c.v:null}
+function paintAv(el,name){const a=avOf(name);if(a){el.style.backgroundImage=`url("${a}")`;el.textContent=''}}
+function paintAvatars(root,names){loadAvatars(names).then(()=>root.querySelectorAll('[data-av]').forEach(el=>paintAv(el,el.dataset.av)))}
+function toAvatar(file){return new Promise((res,rej)=>{const img=new Image(),url=URL.createObjectURL(file);
+  img.onload=()=>{const s=Math.min(img.width,img.height),c=document.createElement('canvas');c.width=c.height=128;
+    c.getContext('2d').drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,128,128);URL.revokeObjectURL(url);
+    let q=.82,d=c.toDataURL('image/jpeg',q);while(d.length>28000&&q>.3){q-=.1;d=c.toDataURL('image/jpeg',q)}res(d)};
+  img.onerror=()=>{URL.revokeObjectURL(url);rej(new Error('Image illisible.'))};img.src=url})}
+function renderPhotoPrev(){const p=$('phPrev');p.style.backgroundImage='';p.textContent=esc(initials(profile.nom));paintAv(p,profile.nom);$('phDel').classList.toggle('hidden',!avOf(profile.nom))}
+function openPhoto(){if(!profile)return;$('phErr').textContent='';renderPhotoPrev();$('photoModal').classList.remove('hidden')}
+$('phPick').addEventListener('click',()=>$('phFile').click());
+$('phFile').addEventListener('change',async e=>{const f=e.target.files&&e.target.files[0];e.target.value='';if(!f)return;$('phErr').textContent='Envoi…';
+  try{const d=await toAvatar(f);await rpc('definir_avatar',{...auth(),p_image:d});avCache.set(profile.nom.toLowerCase(),{v:d,t:Date.now()});$('phErr').textContent='Photo enregistrée.';renderPhotoPrev();renderMenu()}
+  catch(err){$('phErr').textContent=err.message||'Erreur.'}});
+$('phDel').addEventListener('click',async()=>{try{await rpc('definir_avatar',{...auth(),p_image:null});avCache.set(profile.nom.toLowerCase(),{v:null,t:Date.now()});$('phErr').textContent='Photo retirée.';renderPhotoPrev();renderMenu()}catch(err){$('phErr').textContent=err.message}});
+$('phClose').addEventListener('click',()=>$('photoModal').classList.add('hidden'));
+$('myAv').addEventListener('click',openPhoto);$('bPhoto').addEventListener('click',openPhoto);
 
 $('bBoard').addEventListener('click',openBoard);$('bLogout').addEventListener('click',logout);
 {const sv=LS.get('ech_prof',null);if(!DB_ON)goMenu();else if(sv&&sv.nom&&typeof sv.pin==='string'){show('menu');renderMenu();doLogin(sv.nom,sv.pin,true)}else show('login')}
