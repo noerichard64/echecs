@@ -347,6 +347,7 @@ function think(g,time,maxD){const ctx={n:0,dl:Date.now()+time,stop:false},ms=g.m
 function botMove(g,bot,plies){const ms=g.moves();if(ms.length===1)return ms[0];
   if(bot.mode==='random')return pick(ms);
   if(bot.mode==='worst'){if(Math.random()<.2)return pick(ms);const sc=scoreAll(g,1);sc.sort((a,b)=>a.v-b.v);return sc[0].m}
+  {const mm=memoryMove(g,bot);if(mm)return mm}
   if(bot.time){if(plies<6){const sc=scoreAll(g,2);let b=null,bv=-Infinity;for(const s of sc){const v=s.v+Math.random()*30;if(v>bv){bv=v;b=s.m}}return b}
     return think(g,bot.time,bot.maxD)}
   if(Math.random()<bot.blunder)return pick(ms);
@@ -391,7 +392,7 @@ let clocks={w:0,b:0},inc=0,timed=false,timer=null,lastTick=0,token=0,resignArm=n
 
 function renderMenu(){
   $('myElo').textContent=rating;$('myName').textContent=profile?profile.nom+' · Elo':(DB_ON?'Hors ligne · Elo':'Ton classement');$('meBtns').classList.toggle('hidden',!DB_ON);$('bOnline').classList.toggle('hidden',!DB_ON);$('bLogout').textContent=profile?'Changer de profil':'Se connecter';$('myRec').innerHTML=`${rec.w} victoires<br>${rec.d} nulles · ${rec.l} défaites`;
-  $('botList').innerHTML=BOTS.map((b,i)=>`<button class="bot${i===botI?' on':''}" data-i="${i}"><div class="av" style="background:${b.c}">${initials(b.name)}</div><div><div class="n">${b.name}</div><div class="d">${b.d}</div></div><div class="e">${b.elo}</div></button>`).join('');
+  $('botList').innerHTML=BOTS.map((b,i)=>`<button class="bot${i===botI?' on':''}" data-i="${i}"><div class="av" style="background:${b.c}">${initials(b.name)}</div><div><div class="n">${b.name}</div><div class="d">${b.d}${MEMCFG[b.elo]&&profile?' Apprend de tes parties.':''}</div></div><div class="e">${b.elo}</div></button>`).join('');
   $('colSeg').innerHTML=COLS.map(([k,l])=>`<button class="${k===colC?'on':''}" data-k="${k}">${l}</button>`).join('');
   $('rkBox').classList.toggle('hidden',!profile);$('rkSeg').innerHTML=[['1','Classée'],['0','Amicale (sans Elo)']].map(([k,l])=>`<button class="${(k==='1')===ranked?'on':''}" data-k="${k}">${l}</button>`).join('');
   $('tcSeg').innerHTML=TC.map((t,i)=>`<button class="${i===tcI?'on':''}" data-i="${i}">${t.l}</button>`).join('')}
@@ -402,7 +403,7 @@ $('tcSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b
 $('playBtn').addEventListener('click',()=>{unlockAudio();startGame()});
 
 function startGame(){
-  bot=BOTS[botI];G=new Chess();hist=[];lastMove=null;sel=null;over=false;thinking=false;rated=!!(ranked||!profile);friendly=!rated;hintMove=null;token++;
+  bot=BOTS[botI];loadBotMemory(bot);G=new Chess();hist=[];lastMove=null;sel=null;over=false;thinking=false;rated=!!(ranked||!profile);friendly=!rated;hintMove=null;token++;
   userColor=colC==='r'?(Math.random()<.5?'w':'b'):colC;flipped=userColor==='b';
   const tc=TC[tcI];timed=tc.m>0;clocks={w:tc.m*60000,b:tc.m*60000};inc=tc.i;
   $('endModal').classList.add('hidden');show('game');
@@ -473,9 +474,9 @@ $('bMenu').addEventListener('click',()=>{token++;over=true;clearInterval(timer);
 function finish(res,why){if(over)return;over=true;thinking=false;token++;clearInterval(timer);
   const sc=res==='win'?1:res==='draw'?.5:0;let eloTxt,note='';
   if(rated&&profile){const old=rating;eloTxt='Enregistrement…';
-    saveGame(res,true,why).then(()=>{const d=rating-old;$('endElo').textContent=`Elo : ${rating} (${d>=0?'+':''}${d})`;$('endNote').textContent='Sauvegardé dans le classement.';renderPanels()})
+    saveGame(res,true,why).then(sv=>{const d=rating-old;$('endElo').textContent=`Elo : ${rating} (${d>=0?'+':''}${d})`;$('endNote').textContent=sv&&sv.style==='nouveau'?'Nouvelle façon de gagner : +2 de bonus !':sv&&sv.style==='repete'?'Même schéma qu\'une victoire précédente : gain divisé par deux.':'Sauvegardé dans le classement.';renderPanels()})
       .catch(e=>{$('endElo').textContent=`Elo : ${rating}`;$('endNote').textContent='Non enregistré : '+e.message})}
-  else if(rated){const exp=1/(1+Math.pow(10,(bot.elo-rating)/400)),old=rating;rating=Math.max(0,Math.round(rating+32*(sc-exp)));const d=rating-old;
+  else if(rated){const exp=1/(1+Math.pow(10,Math.max(-400,Math.min(400,bot.elo-rating))/400)),old=rating,K=rec.w+rec.d+rec.l<30?40:rating>=2400?10:20;rating=Math.max(0,Math.round(rating+K*(sc-exp)));const d=rating-old;
     eloTxt=`Elo : ${rating} (${d>=0?'+':''}${d})`;rec[res==='win'?'w':res==='draw'?'d':'l']++;LS.set('ech_elo',rating);LS.set('ech_rec',rec);if(DB_ON)note='Partie hors ligne : non comptée dans le classement.'}
   else{if(profile)saveGame(res,false,why).catch(()=>{});eloTxt=`Elo : ${rating}`;note=friendly?'Partie amicale : ton Elo ne change pas.':'Partie non classée (annulation ou indice utilisé).'}
   say(line(res==='win'?'lose':res==='draw'?'draw':'win'));
@@ -569,7 +570,7 @@ async function openBoard(){show('ranking');$('lbErr').textContent='';$('lbList')
   catch(e){$('lbList').innerHTML='';$('lbErr').textContent=e.message}}
 $('lbBack').addEventListener('click',goMenu);$('lbRefresh').addEventListener('click',openBoard);
 async function saveGame(res,classee=true,why=''){if(!profile)return null;const t=TC[tcI];
-  const s=await rpc('enregistrer_partie',{p_nom:profile.nom,p_pin:profile.pin,p_bot_elo:bot.elo,p_resultat:res,p_raison:why,p_coups:hist.length,p_classee:classee,p_cadence:t.m?`${t.m} min${t.i?' + '+t.i+' s':''}`:'Sans pendule'});applyStats(s);return s}
+  const s=await rpc('enregistrer_partie',{p_nom:profile.nom,p_pin:profile.pin,p_bot_elo:bot.elo,p_resultat:res,p_raison:why,p_coups:hist.length,p_classee:classee,p_cadence:t.m?`${t.m} min${t.i?' + '+t.i+' s':''}`:'Sans pendule',p_uci:G.stack.map(u=>uci(u.m)),p_couleur:userColor});applyStats(s);return s}
 
 
 /* ---------- parties en ligne entre joueurs ---------- */
@@ -676,6 +677,26 @@ function finishOnline(s){if(online.ended)return;online.ended=true;over=true;thin
   say(res==='win'?'Bien joué !':res==='draw'?'Belle partie, match nul.':'Ce sera pour la revanche.');
   renderAll();setStatus($('endTitle').textContent+' '+$('endWhy').textContent);setTimeout(()=>$('endModal').classList.remove('hidden'),400)}
 $('bOnline').addEventListener('click',openLobby);
+
+
+/* ---------- mémoire des bots (à partir de Léa) ---------- */
+const MEMCFG={800:{n:5,pen:40},1100:{n:10,pen:60},1400:{n:15,pen:80},1700:{n:25,pen:100},2000:{n:40,pen:120}};
+const MEM_LINES=["Tiens, encore cette ouverture… Je m'en souviens.","Je connais ce plan. Cette fois, je suis prêt.","Encore ce schéma ? J'ai appris de la dernière fois.","Hmm, ça me rappelle notre dernière partie."];
+let botMem=null;
+async function loadBotMemory(b){botMem=null;const cfg=MEMCFG[b.elo];if(!cfg||!profile||!DB_ON)return;
+  try{const rows=await rpc('memoire_bot',{...auth(),p_bot_elo:b.elo,p_limite:cfg.n});if(bot!==b||!Array.isArray(rows))return;
+    const nodes=new Map();
+    for(const r of rows){if(!r.coups||!r.couleur)continue;const botCol=r.couleur==='w'?'b':'w',out=r.resultat==='victoire'?'l':r.resultat==='défaite'?'w':'d';
+      for(let i=0;i<Math.min(r.coups.length,30);i++){if((i%2===0?'w':'b')!==botCol)continue;const key=r.coups.slice(0,i).join(' ');
+        let n=nodes.get(key);if(!n)nodes.set(key,n={});const st=n[r.coups[i]]||(n[r.coups[i]]={w:0,l:0,d:0});st[out]++}}
+    botMem={elo:b.elo,cfg,nodes,lines:rows.filter(r=>r.coups).map(r=>r.coups.join(' ')),said:false}}catch(e){}}
+function memoryMove(g,b){if(!botMem||botMem.elo!==b.elo)return null;
+  const ucis=g.stack.map(u=>uci(u.m)),key=ucis.join(' '),node=botMem.nodes.get(key);
+  if(!botMem.said&&ucis.length>=4&&botMem.lines.some(l=>l.length>key.length&&l.startsWith(key+' '))){botMem.said=true;say(pick(MEM_LINES))}
+  if(!node)return null;
+  const sc=scoreAll(g,Math.min(b.depth||3,3)),pen=botMem.cfg.pen;let best=null,bv=-Infinity;
+  for(const s of sc){const st=node[uci(s.m)];let v=s.v+(Math.random()*2-1)*(b.noise||8);if(st)v+=pen*(st.w*0.5-st.l*1.5);if(v>bv){bv=v;best=s.m}}
+  return best}
 
 $('bBoard').addEventListener('click',openBoard);$('bLogout').addEventListener('click',logout);
 {const sv=LS.get('ech_prof',null);if(!DB_ON)goMenu();else if(sv&&sv.nom&&typeof sv.pin==='string'){show('menu');renderMenu();doLogin(sv.nom,sv.pin,true)}else show('login')}
