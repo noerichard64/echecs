@@ -137,6 +137,13 @@ h2{font-size:17px;margin:22px 0 10px}
 .who{display:flex;align-items:center;gap:10px;min-width:0}
 .me-av{width:58px;height:58px;border:0;font-size:20px;cursor:pointer;flex:none;padding:0}
 .av{background-size:cover;background-position:center}
+
+.gl{font-size:34px;line-height:1;text-align:center}
+.lesson{display:grid;grid-template-columns:34px minmax(0,1fr) auto;align-items:center;gap:10px;width:100%;background:var(--panel);border:0;border-radius:12px;padding:12px;text-align:left}
+.lesson .ok{color:#7fd17f;font-weight:800}
+#lnBoard{max-width:420px;margin:6px auto 0}
+.tip{background:var(--panel);border-radius:12px;padding:12px 14px;font-size:14px;line-height:1.5}
+.tip li{margin:3px 0}
 @media (prefers-reduced-motion:no-preference){.say span{animation:pop .25s ease-out}@keyframes pop{from{transform:scale(.85);opacity:0}}}
 </style>
 </head>
@@ -186,12 +193,61 @@ h2{font-size:17px;margin:22px 0 10px}
   <button class="btn2" id="rmLeave">Quitter le salon</button>
 </div>
 
+<div id="learn" class="wrap screen hidden">
+  <div class="top"><h1>Apprendre</h1><button id="lnBack">Retour</button></div>
+  <div id="lnHome">
+    <p class="sub">Tu débutes ? Lis les bases, puis entraîne-toi avec les parties d'apprentissage.</p>
+    <h2>Les pièces</h2>
+    <div class="lb" id="lnPieces"></div>
+    <h2>Les règles à connaître</h2>
+    <div class="tip"><ul style="margin:0;padding-left:18px">
+      <li><b>Le but</b> : mettre le roi adverse <b>échec et mat</b>, c'est-à-dire attaqué sans aucun moyen de s'en sortir.</li>
+      <li><b>Échec</b> : ton roi est attaqué. Tu dois le protéger tout de suite (le déplacer, prendre l'attaquant ou te mettre devant).</li>
+      <li><b>Match nul</b> : une partie peut aussi se terminer sans gagnant, voir juste en dessous.</li>
+      <li><b>Roque</b> : une fois par partie, le roi glisse de deux cases vers une tour et la tour passe de l'autre côté. Possible si ni le roi ni cette tour n'ont bougé et que rien ne gêne.</li>
+      <li><b>Prise en passant</b> : si un pion adverse avance de deux cases et arrive juste à côté du tien, tu peux le prendre comme s'il n'avait avancé que d'une case, mais seulement au coup suivant.</li>
+      <li><b>Les Blancs commencent</b>, puis chacun joue un coup à son tour.</li>
+    </ul></div>
+    <h2>Le match nul (quand personne ne gagne)</h2>
+    <div class="tip">
+      <p style="margin:0 0 8px">Une partie n'a pas toujours un gagnant. Elle est <b>nulle</b> dans ces cas :</p>
+      <ul style="margin:0;padding-left:18px">
+        <li><b>Le pat</b> : c'est au tour d'un joueur, son roi <b>n'est pas en échec</b>, mais il n'a <b>aucun coup autorisé</b>. Ce n'est pas un mat, c'est nul. C'est le piège classique du débutant qui gagne largement : avant de jouer, vérifie que le roi adverse a encore une case où aller.</li>
+        <li><b>Pas assez de pièces pour mater</b> : il ne reste par exemple que les deux rois, ou un roi contre un roi et un seul fou ou un seul cavalier. Personne ne peut plus gagner.</li>
+        <li><b>La triple répétition</b> : la même position revient trois fois (souvent quand les deux joueurs refont les mêmes coups en boucle).</li>
+        <li><b>La règle des 50 coups</b> : 50 coups de chaque côté sans aucune prise ni coup de pion. La partie tourne en rond, elle est déclarée nulle.</li>
+        <li><b>D'un commun accord</b> : en partie en ligne, un joueur propose la nulle avec le bouton « Nulle ? » et l'autre accepte.</li>
+      </ul>
+      <p style="margin:8px 0 0"><b>Et pour l'Elo ?</b> Une nulle compte comme une demi-victoire. Faire nul contre plus fort que toi te fait gagner des points, contre plus faible tu en perds un peu.</p>
+    </div>
+    <h2>Conseils pour bien débuter</h2>
+    <div class="tip"><ul style="margin:0;padding-left:18px">
+      <li>Occupe le <b>centre</b> avec tes pions (cases d4, e4, d5, e5).</li>
+      <li><b>Sors tes cavaliers et tes fous</b> avant de jouer plusieurs fois la même pièce.</li>
+      <li><b>Roque tôt</b> pour mettre ton roi à l'abri.</li>
+      <li>Ne sors pas ta <b>dame</b> trop tôt : elle se fait chasser.</li>
+      <li>Avant chaque coup, regarde : <b>qu'est-ce que mon adversaire menace ?</b> Et est-ce qu'une de ses pièces n'est pas protégée ?</li>
+    </ul></div>
+    <h2>Parties d'apprentissage</h2>
+    <div class="lb" id="lnList"></div>
+  </div>
+  <div id="lnLesson" class="hidden">
+    <p class="st" id="lnStep" style="margin:0;color:var(--mute);font-size:13px"></p>
+    <h2 id="lnTitle" style="margin:2px 0 6px"></h2>
+    <p id="lnText" style="margin:0 0 6px"></p>
+    <div class="board" id="lnBoard"></div>
+    <p class="status" id="lnMsg"></p>
+    <div class="mebtns"><button id="lnHint">Indice</button><button id="lnRetry">Recommencer</button><button id="lnNext" class="hidden">Suivante</button></div>
+  </div>
+</div>
+
 <div id="menu" class="wrap screen hidden">
   <h1>San Andreas Chess Federation</h1>
   <p class="sub">La fédération d'échecs de San Andreas : 8 bots, des joueurs en ligne et un classement officiel.</p>
   <div class="me"><button class="av me-av" id="myAv" aria-label="Photo de profil"></button><div><small id="myName">Ton classement</small><b id="myElo">800</b></div><div id="myRec" style="margin-left:auto;text-align:right;color:var(--mute);font-size:14px"></div></div>
   <div class="mebtns" id="meBtns"><button id="bBoard">Classement</button><button id="bPhoto">Photo</button><button id="bLogout">Déconnexion</button></div>
   <button class="btn2 hl" id="bOnline">Jouer contre un vrai joueur</button>
+  <button class="btn2" id="bLearn">Apprendre les échecs (débutants)</button>
   <h2>Adversaire</h2>
   <div class="bots" id="botList"></div>
   <h2>Ta couleur</h2>
@@ -509,7 +565,7 @@ async function rpc(fn,args){const h={'apikey':DB.key,'Content-Type':'application
   const t=await r.text();let d=null;try{d=t?JSON.parse(t):null}catch(e){}
   if(!r.ok)throw new Error((d&&(d.message||d.hint))||'Connexion au serveur impossible.');return d}
 function applyStats(s){rating=s.elo;rec={w:s.victoires,d:s.nulles,l:s.defaites};profile.best=s.meilleure_victoire}
-function show(id){for(const s of['login','menu','ranking','game','lobby','room'])$(s).classList.toggle('hidden',s!==id);if(typeof presence==='function'&&presTimer)setTimeout(presence,50)}
+function show(id){for(const s of['login','menu','ranking','game','lobby','room','learn'])$(s).classList.toggle('hidden',s!==id);if(typeof presence==='function'&&presTimer)setTimeout(presence,50)}
 function goMenu(){if(typeof stopOnline==='function')stopOnline();if(online){online=null;bot=BOTS[botI]}$('bAgain').textContent='Rejouer';show('menu');renderMenu()}
 async function doLogin(nom,pin,silent){$('lgErr').textContent='';$('lgBtn').disabled=true;$('lgBtn').textContent='Connexion…';
   try{const s=await rpc('connexion',{p_nom:nom,p_pin:pin});profile={nom:s.nom,pin};applyStats(s);loadAvatars([s.nom]).then(()=>{if(!$('menu').classList.contains('hidden'))renderMenu()});LS.set('ech_prof',{nom:s.nom,pin});goMenu()}
@@ -686,6 +742,72 @@ $('phFile').addEventListener('change',async e=>{const f=e.target.files&&e.target
 $('phDel').addEventListener('click',async()=>{try{await rpc('definir_avatar',{...auth(),p_image:null});avCache.set(profile.nom.toLowerCase(),{v:null,t:Date.now()});$('phErr').textContent='Photo retirée.';renderPhotoPrev();renderMenu()}catch(err){$('phErr').textContent=err.message}});
 $('phClose').addEventListener('click',()=>$('photoModal').classList.add('hidden'));
 $('myAv').addEventListener('click',openPhoto);$('bPhoto').addEventListener('click',openPhoto);
+
+
+/* ---------- onglet Apprendre : bases + parties d'apprentissage ---------- */
+Chess.prototype.load=function(fen){const [pos,t,c,e,h]=fen.split(' ');this.b=new Array(64).fill(null);let i=0;
+  for(const ch of pos){if(ch==='/')continue;if(ch>='1'&&ch<='8')i+=+ch;else this.b[i++]=ch}
+  this.turn=t||'w';this.castle=c&&c!=='-'?c:'';this.ep=e&&e!=='-'?(8-+e[1])*8+FILES.indexOf(e[0]):-1;this.half=+h||0;this.stack=[];this.keys=[this.key()];return this};
+const PIECES=[['k','Le roi','Avance d\'une seule case, dans toutes les directions. C\'est la pièce à protéger : s\'il est mat, tu as perdu.'],
+ ['q','La dame · 9 points','La plus puissante : elle va aussi loin qu\'elle veut, en ligne droite et en diagonale.'],
+ ['r','La tour · 5 points','Va aussi loin qu\'elle veut en ligne droite, à l\'horizontale ou à la verticale.'],
+ ['b','Le fou · 3 points','Va aussi loin qu\'il veut en diagonale. Il reste toujours sur la même couleur de case.'],
+ ['n','Le cavalier · 3 points','Se déplace en « L » : deux cases tout droit puis une sur le côté. C\'est la seule pièce qui saute par-dessus les autres.'],
+ ['p','Le pion · 1 point','Avance d\'une case (ou deux à son premier coup) et prend en diagonale. Arrivé au bout de l\'échiquier, il se transforme, le plus souvent en dame.']];
+const LESSONS=[
+ {t:'La tour',fen:'4k3/8/8/8/8/8/8/R3K3 w - - 0 1',txt:'La tour va tout droit. Amène-la tout en haut, en a8.',exp:['a1a8'],win:'Bravo ! La tour traverse tout l\'échiquier en un seul coup, et en plus elle met le roi en échec.'},
+ {t:'Le fou',fen:'4k3/8/8/8/8/8/8/2B1K3 w - - 0 1',txt:'Le fou va en diagonale. Envoie-le en h6.',exp:['c1h6'],win:'Parfait ! Remarque : il reste toujours sur les cases de la même couleur.'},
+ {t:'Le cavalier',fen:'4k3/8/8/3p4/8/4N3/8/4K3 w - - 0 1',txt:'Le cavalier saute en « L ». Prends le pion noir.',exp:['e3d5'],win:'Bien joué ! Deux cases vers le haut, une sur le côté : c\'est le saut du cavalier.'},
+ {t:'La dame et l\'échec',fen:'4k3/8/8/8/8/8/8/3QK3 w - - 0 1',txt:'Mets le roi noir en échec avec ta dame (n\'importe quel coup qui l\'attaque).',goal:'check',tip:'La dame attaque en ligne droite et en diagonale : vise la colonne, la rangée ou une diagonale du roi noir en e8.',win:'Échec ! Le roi noir est attaqué et devra s\'échapper au prochain coup.'},
+ {t:'Prendre la pièce gratuite',fen:'4k3/8/8/8/3q4/8/8/3RK3 w - - 0 1',txt:'La dame noire n\'est protégée par personne. Prends-la !',exp:['d1d4'],win:'Une dame gagnée pour rien ! Cherche toujours les pièces adverses non protégées.'},
+ {t:'La promotion',fen:'4k3/P7/8/8/8/8/8/4K3 w - - 0 1',txt:'Ton pion est presque au bout. Avance-le : il deviendra une dame.',exp:['a7a8q'],win:'Promotion ! Ton pion est devenu une dame.'},
+ {t:'Le roque',fen:'4k3/8/8/8/8/8/8/4K2R w K - 0 1',txt:'Mets ton roi à l\'abri en roquant : clique sur ton roi, puis sur g1.',exp:['e1g1'],win:'Roque réussi ! Le roi est à l\'abri et la tour entre en jeu.'},
+ {t:'Le mat du couloir',fen:'6k1/5ppp/8/8/8/8/8/4R1K1 w - - 0 1',txt:'Le roi noir est bloqué derrière ses pions. Trouve l\'échec et mat en un coup.',goal:'mate',tip:'La rangée du fond (la 8e) n\'est protégée par personne…',win:'Échec et mat ! Le roi est coincé par ses propres pions : c\'est le « mat du couloir ».'},
+ {t:'Mater avec la dame',fen:'k7/8/1K6/8/8/8/8/7Q w - - 0 1',txt:'Ton roi aide ta dame. Trouve l\'échec et mat en un coup.',goal:'mate',tip:'Ton roi contrôle déjà a7 et b7. Il reste à attaquer le roi noir sur sa rangée.',win:'Mat ! La dame donne l\'échec et ton roi lui coupe toutes les cases de fuite.'},
+ {t:'Attention au pat !',fen:'k7/8/1K6/8/8/8/8/2Q5 w - - 0 1',txt:'Tu gagnes largement. Trouve l\'échec et mat en un coup, mais attention à ne pas faire pat (match nul) !',goal:'mate',tip:'Si ta dame va en c7, le roi noir n\'a plus aucun coup sans être en échec : c\'est pat. Cherche plutôt à l\'attaquer sur la 8e rangée.',win:'Mat ! Tu as évité le pat : le roi noir est attaqué ET ne peut aller nulle part.'},
+ {t:'Le mat du berger',fen:'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1',steps:[
+   {txt:'Une vraie petite partie ! 1er coup : avance ton pion du roi de deux cases (e2 vers e4).',exp:['e2e4'],reply:'e7e5'},
+   {txt:'Les Noirs ont répondu e5. Sors ton fou en c4 : il vise la case faible f7.',exp:['f1c4'],reply:'b8c6'},
+   {txt:'Sors ta dame en h5. Avec le fou, elle attaque maintenant f7.',exp:['d1h5'],reply:'g8f6'},
+   {txt:'Les Noirs ont oublié de protéger f7. Prends en f7 avec ta dame : échec et mat !',exp:['h5f7']}],
+  win:'Échec et mat en 4 coups ! C\'est le « mat du berger ». Retiens-le pour ne jamais te le faire faire : en Noirs, quand la dame blanche arrive en h5, protège f7 (dame en e7 ou f6) ou chasse-la avec g6. Ici, Cf6 attaquait la dame mais ne défendait pas f7.'}];
+let LN=null;
+const lnDone=()=>LS.get('ech_learn',[]);
+function openLearn(){show('learn');LN=null;$('lnHome').classList.remove('hidden');$('lnLesson').classList.add('hidden');
+  $('lnPieces').innerHTML=PIECES.map(([k,t,d])=>`<div class="lbr" style="grid-template-columns:44px minmax(0,1fr)"><div class="gl"><span class="pc w" style="font-size:34px">${GLY[k]}</span></div><div><div class="nm2">${t}</div><div class="st" style="font-size:13px;line-height:1.4">${d}</div></div></div>`).join('');
+  const done=lnDone();$('lnList').innerHTML=LESSONS.map((L,i)=>`<button class="lesson" data-i="${i}"><b class="rk" style="color:var(--brass)">${i+1}</b><span><b>${L.t}</b><br><small style="color:var(--mute)">${L.steps?'Mini-partie':L.goal==='mate'?'Échec et mat':L.goal==='check'?'Échec':'Exercice'}</small></span><span class="ok">${done.includes(i)?'✓':''}</span></button>`).join('');$('learn').scrollTop=0}
+function lnStep(){const L=LESSONS[LN.i];return L.steps?L.steps[LN.step]:L}
+function startLesson(i){const L=LESSONS[i];LN={i,step:0,g:new Chess().load(L.fen),sel:null,hint:null,last:null,ok:false,busy:false};
+  $('lnHome').classList.add('hidden');$('lnLesson').classList.remove('hidden');$('lnTitle').textContent=L.t;$('lnStep').textContent=`Leçon ${i+1} sur ${LESSONS.length}`;
+  $('lnNext').classList.add('hidden');$('lnText').textContent=lnStep().txt;$('lnMsg').textContent='';renderLn();$('learn').scrollTop=0}
+const uIdx=u=>(8-+u[1])*8+FILES.indexOf(u[0]);
+function renderLn(){const g=LN.g,from=LN.sel!==null?g.moves().filter(m=>m.f===LN.sel):[],chk=g.inCheck()?g.kingSq(g.turn):-1;let h='';
+  for(let i=0;i<64;i++){const r=i>>3,c=i&7;let cls='sq '+((r+c)%2?'d':'l');
+    if(LN.last&&(i===LN.last.f||i===LN.last.t))cls+=' last';if(i===LN.sel)cls+=' sel';if(LN.hint!==null&&LN.hint.includes(i))cls+=' hint';if(i===chk)cls+=' chk';
+    const p=g.b[i];let inner=p?`<span class="pc ${col(p)}">${GLY[p.toLowerCase()]}</span>`:'';
+    const tg=from.find(m=>m.t===i);if(tg)inner+=`<span class="${p||tg.fl==='e'?'ring':'dot'}"></span>`;
+    if(c===0)inner+=`<span class="co r">${8-r}</span>`;if(r===7)inner+=`<span class="co f">${FILES[c]}</span>`;
+    h+=`<div class="${cls}" data-i="${i}">${inner}</div>`}
+  $('lnBoard').innerHTML=h}
+$('lnBoard').addEventListener('click',e=>{const s=e.target.closest('.sq');if(!s||!LN||LN.ok||LN.busy)return;unlockAudio();const i=+s.dataset.i,g=LN.g,p=g.b[i];
+  if(LN.sel!==null){const c=g.moves().filter(m=>m.f===LN.sel&&m.t===i);if(c.length){tryLesson(c.find(m=>m.pr&&m.pr.toLowerCase()==='q')||c[0]);return}}
+  LN.sel=(p&&col(p)===g.turn&&LN.sel!==i)?i:null;renderLn()});
+function tryLesson(m){const g=LN.g,st=lnStep(),u=uci(m);LN.sel=null;LN.hint=null;g.make(m);
+  const ok=st.exp?st.exp.includes(u):st.goal==='check'?g.inCheck():st.goal==='mate'?(g.inCheck()&&!g.moves().length):false;
+  if(!ok){const pat=!g.inCheck()&&!g.moves().length;g.undo();$('lnMsg').textContent=pat?'Pat ! Le roi noir n\'est pas en échec mais ne peut plus bouger : la partie serait NULLE. Réessaie.':'Pas tout à fait… Réessaie, ou touche « Indice ».';renderLn();return}
+  LN.last=m;sound(!!m.x);const L=LESSONS[LN.i];
+  if(L.steps&&LN.step<L.steps.length-1){$('lnMsg').textContent='Bien !';renderLn();LN.busy=true;
+    setTimeout(()=>{const r=g.moves().find(x=>uci(x)===st.reply);if(r){g.make(r);LN.last=r;sound(!!r.x)}LN.step++;LN.busy=false;$('lnText').textContent=lnStep().txt;$('lnMsg').textContent='';renderLn()},650);return}
+  LN.ok=true;$('lnMsg').textContent=L.win;renderLn();const d=lnDone();if(!d.includes(LN.i)){d.push(LN.i);LS.set('ech_learn',d)}
+  $('lnNext').classList.remove('hidden');$('lnNext').textContent=LN.i<LESSONS.length-1?'Leçon suivante':'Terminer'}
+$('lnHint').addEventListener('click',()=>{if(!LN||LN.ok)return;const st=lnStep();
+  if(st.exp){LN.hint=[uIdx(st.exp[0].slice(0,2)),uIdx(st.exp[0].slice(2,4))];$('lnMsg').textContent='Joue la pièce en surbrillance vers la case indiquée.'}
+  else $('lnMsg').textContent=st.tip||'';renderLn()});
+$('lnRetry').addEventListener('click',()=>{if(LN)startLesson(LN.i)});
+$('lnNext').addEventListener('click',()=>{if(!LN)return;if(LN.i<LESSONS.length-1)startLesson(LN.i+1);else openLearn()});
+$('lnBack').addEventListener('click',()=>{if(LN&&!$('lnLesson').classList.contains('hidden'))openLearn();else goMenu()});
+$('lnList').addEventListener('click',e=>{const b=e.target.closest('.lesson');if(b)startLesson(+b.dataset.i)});
+$('bLearn').addEventListener('click',openLearn);
 
 $('bBoard').addEventListener('click',openBoard);$('bLogout').addEventListener('click',logout);
 {const sv=LS.get('ech_prof',null);if(!DB_ON)goMenu();else if(sv&&sv.nom&&typeof sv.pin==='string'){show('menu');renderMenu();doLogin(sv.nom,sv.pin,true)}else show('login')}
