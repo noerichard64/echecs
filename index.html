@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
@@ -130,15 +129,15 @@ h2{font-size:17px;margin:22px 0 10px}
 
 <div id="login" class="wrap screen hidden">
   <h1>Échecs contre les bots</h1>
-  <p class="sub">Entre le nom de ton perso et un code à 4 chiffres. Ta progression est sauvegardée en ligne et visible dans le classement.</p>
+  <p class="sub">Entre le nom de ton perso. Ta progression est sauvegardée en ligne et visible dans le classement.</p>
   <form id="loginForm" autocomplete="off">
     <label class="field"><span>Nom du perso</span><input id="lgNom" maxlength="24" placeholder="Ex. Arthur Bean" autocapitalize="words"></label>
-    <label class="field"><span>Code à 4 chiffres (garde-le pour te reconnecter)</span><input id="lgPin" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••" type="password"></label>
+    <label class="field"><span>Code à 4 chiffres (facultatif, mais conseillé)</span><input id="lgPin" inputmode="numeric" pattern="[0-9]*" maxlength="4" placeholder="••••" type="password"></label>
     <p class="err" id="lgErr"></p>
     <button class="big" id="lgBtn" type="submit" style="margin-top:4px">Se connecter</button>
   </form>
-  <p class="note">Nouveau nom : le profil est créé avec ce code. Nom déjà pris : il faut son code.</p>
-  <button class="link" id="lgOffline">Jouer sans profil (hors classement)</button>
+  <p class="note">Sans code, n'importe qui peut jouer sous ton nom et changer ton Elo. Avec un code, le profil est protégé : retiens-le pour te reconnecter.</p>
+  <button class="link" id="lgOffline">Jouer sans profil, juste pour le plaisir</button>
 </div>
 
 <div id="ranking" class="wrap screen hidden">
@@ -158,6 +157,8 @@ h2{font-size:17px;margin:22px 0 10px}
   <div class="seg" id="colSeg"></div>
   <h2>Cadence</h2>
   <div class="seg" id="tcSeg"></div>
+  <div id="rkBox"><h2>Type de partie</h2>
+  <div class="seg" id="rkSeg"></div></div>
   <h2>Musique de fond</h2>
   <div class="music">
     <div class="mrow"><button class="sw" id="mToggle" aria-label="Activer la musique"></button><span id="mNow"></span></div>
@@ -351,21 +352,23 @@ const line=(k)=>pick((bot[k]||GEN[k]));
 const initials=n=>n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
 
 /* ---------- état de partie ---------- */
-let G,bot,userColor='w',flipped=false,sel=null,lastMove=null,hist=[],over=false,thinking=false,rated=true,hintMove=null;
+let G,bot,userColor='w',flipped=false,sel=null,lastMove=null,hist=[],over=false,thinking=false,rated=true,friendly=false,hintMove=null,ranked=LS.get('ech_ranked',true);
 let clocks={w:0,b:0},inc=0,timed=false,timer=null,lastTick=0,token=0,resignArm=null,actx=null;
 
 function renderMenu(){
   $('myElo').textContent=rating;$('myName').textContent=profile?profile.nom+' · Elo':(DB_ON?'Hors ligne · Elo':'Ton classement');$('meBtns').classList.toggle('hidden',!DB_ON);$('bLogout').textContent=profile?'Changer de profil':'Se connecter';$('myRec').innerHTML=`${rec.w} victoires<br>${rec.d} nulles · ${rec.l} défaites`;
   $('botList').innerHTML=BOTS.map((b,i)=>`<button class="bot${i===botI?' on':''}" data-i="${i}"><div class="av" style="background:${b.c}">${initials(b.name)}</div><div><div class="n">${b.name}</div><div class="d">${b.d}</div></div><div class="e">${b.elo}</div></button>`).join('');
   $('colSeg').innerHTML=COLS.map(([k,l])=>`<button class="${k===colC?'on':''}" data-k="${k}">${l}</button>`).join('');
+  $('rkBox').classList.toggle('hidden',!profile);$('rkSeg').innerHTML=[['1','Classée'],['0','Amicale (sans Elo)']].map(([k,l])=>`<button class="${(k==='1')===ranked?'on':''}" data-k="${k}">${l}</button>`).join('');
   $('tcSeg').innerHTML=TC.map((t,i)=>`<button class="${i===tcI?'on':''}" data-i="${i}">${t.l}</button>`).join('')}
 $('botList').addEventListener('click',e=>{const b=e.target.closest('.bot');if(!b)return;botI=+b.dataset.i;LS.set('ech_bot',botI);renderMenu()});
 $('colSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;colC=b.dataset.k;LS.set('ech_col',colC);renderMenu()});
+$('rkSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;ranked=b.dataset.k==='1';LS.set('ech_ranked',ranked);renderMenu()});
 $('tcSeg').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;tcI=+b.dataset.i;LS.set('ech_tc',tcI);renderMenu()});
 $('playBtn').addEventListener('click',()=>{unlockAudio();startGame()});
 
 function startGame(){
-  bot=BOTS[botI];G=new Chess();hist=[];lastMove=null;sel=null;over=false;thinking=false;rated=true;hintMove=null;token++;
+  bot=BOTS[botI];G=new Chess();hist=[];lastMove=null;sel=null;over=false;thinking=false;rated=!!(ranked||!profile);friendly=!rated;hintMove=null;token++;
   userColor=colC==='r'?(Math.random()<.5?'w':'b'):colC;flipped=userColor==='b';
   const tc=TC[tcI];timed=tc.m>0;clocks={w:tc.m*60000,b:tc.m*60000};inc=tc.i;
   $('endModal').classList.add('hidden');show('game');
@@ -440,7 +443,7 @@ function finish(res,why){if(over)return;over=true;thinking=false;token++;clearIn
       .catch(e=>{$('endElo').textContent=`Elo : ${rating}`;$('endNote').textContent='Non enregistré : '+e.message})}
   else if(rated){const exp=1/(1+Math.pow(10,(bot.elo-rating)/400)),old=rating;rating=Math.max(100,Math.round(rating+32*(sc-exp)));const d=rating-old;
     eloTxt=`Elo : ${rating} (${d>=0?'+':''}${d})`;rec[res==='win'?'w':res==='draw'?'d':'l']++;LS.set('ech_elo',rating);LS.set('ech_rec',rec);if(DB_ON)note='Partie hors ligne : non comptée dans le classement.'}
-  else{eloTxt=`Elo : ${rating}`;note='Partie non classée (annulation ou indice utilisé).'}
+  else{eloTxt=`Elo : ${rating}`;note=friendly?'Partie amicale : ton Elo ne change pas.':'Partie non classée (annulation ou indice utilisé).'}
   say(line(res==='win'?'lose':res==='draw'?'draw':'win'));
   $('endTitle').textContent=res==='win'?'Victoire !':res==='draw'?'Match nul':'Défaite';
   $('endWhy').textContent=(res==='win'?'Tu gagnes ':res==='draw'?'Nulle ':`${bot.name} gagne `)+why+'.';
@@ -535,7 +538,7 @@ async function saveGame(res){if(!profile)return null;
   const s=await rpc('enregistrer_partie',{p_nom:profile.nom,p_pin:profile.pin,p_bot_elo:bot.elo,p_resultat:res});applyStats(s);return s}
 
 $('bBoard').addEventListener('click',openBoard);$('bLogout').addEventListener('click',logout);
-{const sv=LS.get('ech_prof',null);if(!DB_ON)goMenu();else if(sv&&sv.nom&&sv.pin){show('menu');renderMenu();doLogin(sv.nom,sv.pin,true)}else show('login')}
+{const sv=LS.get('ech_prof',null);if(!DB_ON)goMenu();else if(sv&&sv.nom&&typeof sv.pin==='string'){show('menu');renderMenu();doLogin(sv.nom,sv.pin,true)}else show('login')}
 syncKvp();setTimeout(syncKvp,1500);
 window.__test={Chess,botMove,think,BOTS};
 }
