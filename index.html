@@ -375,7 +375,7 @@ const nui=(ev,data)=>{try{if(IN_GAME&&typeof fetchNui==='function')return Promis
 const LS={get(k,d){if(k in STORE)return STORE[k];try{const v=localStorage.getItem(k);return v==null?d:JSON.parse(v)}catch(e){return d}},
   set(k,v){STORE[k]=v;try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}nui('echecs:save',{key:k,value:JSON.stringify(v)}).catch(()=>{})}};
 let rating,rec,botI,colC,tcI,profile=null;  // profile = {nom,pin} quand connecté en ligne
-function loadPrefs(){if(!profile){rating=LS.get('ech_elo',800);rec=LS.get('ech_rec',{w:0,d:0,l:0})}botI=Math.min(LS.get('ech_bot',3),7);colC=LS.get('ech_col','w');tcI=Math.min(LS.get('ech_tc',0),3)}
+function loadPrefs(){if(!profile){rating=LS.get('ech_elo',0);rec=LS.get('ech_rec',{w:0,d:0,l:0})}botI=Math.min(LS.get('ech_bot',3),7);colC=LS.get('ech_col','w');tcI=Math.min(LS.get('ech_tc',0),3)}
 loadPrefs();
 let synced=false;
 function syncKvp(){if(synced)return;nui('echecs:load').then(d=>{if(!d||typeof d!=='object')return;synced=true;
@@ -473,11 +473,11 @@ $('bMenu').addEventListener('click',()=>{token++;over=true;clearInterval(timer);
 function finish(res,why){if(over)return;over=true;thinking=false;token++;clearInterval(timer);
   const sc=res==='win'?1:res==='draw'?.5:0;let eloTxt,note='';
   if(rated&&profile){const old=rating;eloTxt='Enregistrement…';
-    saveGame(res).then(()=>{const d=rating-old;$('endElo').textContent=`Elo : ${rating} (${d>=0?'+':''}${d})`;$('endNote').textContent='Sauvegardé dans le classement.';renderPanels()})
+    saveGame(res,true,why).then(()=>{const d=rating-old;$('endElo').textContent=`Elo : ${rating} (${d>=0?'+':''}${d})`;$('endNote').textContent='Sauvegardé dans le classement.';renderPanels()})
       .catch(e=>{$('endElo').textContent=`Elo : ${rating}`;$('endNote').textContent='Non enregistré : '+e.message})}
-  else if(rated){const exp=1/(1+Math.pow(10,(bot.elo-rating)/400)),old=rating;rating=Math.max(100,Math.round(rating+32*(sc-exp)));const d=rating-old;
+  else if(rated){const exp=1/(1+Math.pow(10,(bot.elo-rating)/400)),old=rating;rating=Math.max(0,Math.round(rating+32*(sc-exp)));const d=rating-old;
     eloTxt=`Elo : ${rating} (${d>=0?'+':''}${d})`;rec[res==='win'?'w':res==='draw'?'d':'l']++;LS.set('ech_elo',rating);LS.set('ech_rec',rec);if(DB_ON)note='Partie hors ligne : non comptée dans le classement.'}
-  else{eloTxt=`Elo : ${rating}`;note=friendly?'Partie amicale : ton Elo ne change pas.':'Partie non classée (annulation ou indice utilisé).'}
+  else{if(profile)saveGame(res,false,why).catch(()=>{});eloTxt=`Elo : ${rating}`;note=friendly?'Partie amicale : ton Elo ne change pas.':'Partie non classée (annulation ou indice utilisé).'}
   say(line(res==='win'?'lose':res==='draw'?'draw':'win'));
   $('endTitle').textContent=res==='win'?'Victoire !':res==='draw'?'Match nul':'Défaite';
   $('endWhy').textContent=(res==='win'?'Tu gagnes ':res==='draw'?'Nulle ':`${bot.name} gagne `)+why+'.';
@@ -568,8 +568,8 @@ async function openBoard(){show('ranking');$('lbErr').textContent='';$('lbList')
     $('lbList').innerHTML=rows&&rows.length?rows.map(r=>`<div class="lbr${profile&&r.nom.toLowerCase()===profile.nom.toLowerCase()?' me2':''}"><div class="rk">${r.rang}</div><div><div class="nm2">${esc(r.nom)}</div><div class="st">${r.victoires} V · ${r.nulles} N · ${r.defaites} D${r.meilleure_victoire?` · a battu ${r.meilleure_victoire}`:''}</div></div><div class="el">${r.elo}</div></div>`).join(''):'<p class="note">Personne n\'a encore joué de partie classée. À toi de jouer !</p>'}
   catch(e){$('lbList').innerHTML='';$('lbErr').textContent=e.message}}
 $('lbBack').addEventListener('click',goMenu);$('lbRefresh').addEventListener('click',openBoard);
-async function saveGame(res){if(!profile)return null;
-  const s=await rpc('enregistrer_partie',{p_nom:profile.nom,p_pin:profile.pin,p_bot_elo:bot.elo,p_resultat:res});applyStats(s);return s}
+async function saveGame(res,classee=true,why=''){if(!profile)return null;const t=TC[tcI];
+  const s=await rpc('enregistrer_partie',{p_nom:profile.nom,p_pin:profile.pin,p_bot_elo:bot.elo,p_resultat:res,p_raison:why,p_coups:hist.length,p_classee:classee,p_cadence:t.m?`${t.m} min${t.i?' + '+t.i+' s':''}`:'Sans pendule'});applyStats(s);return s}
 
 
 /* ---------- parties en ligne entre joueurs ---------- */
