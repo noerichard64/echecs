@@ -71,7 +71,7 @@ h2{font-size:17px;margin:22px 0 10px}
 .co.r{left:3px;top:1px}.co.f{right:3px;bottom:0}
 .l .co{color:var(--dark)}.d .co{color:var(--light)}
 .status{text-align:center;font-weight:500;min-height:22px;margin-top:4px;font-size:14px;flex:none}
-.ctr{flex:none;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px;margin-top:8px}
+.ctr{flex:none;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px}
 .ctr button{min-height:44px;border:0;border-radius:10px;background:var(--panel);font-size:13px;font-weight:500;padding:4px}
 .ctr button:disabled{opacity:.4}
 .ctr button.warn{background:#c8371e;color:#fff}
@@ -201,7 +201,7 @@ h2{font-size:17px;margin:22px 0 10px}
   <div id="rkBox"><h2>Type de partie</h2>
   <div class="seg" id="rkSeg"></div></div>
   <button class="big" id="playBtn">Jouer</button>
-  <p class="note">Les Elo des bots sont approximatifs. Une partie où tu utilises « Annuler » ou « Indice » n'est pas classée.</p>
+  <p class="note">Les Elo des bots sont approximatifs. Une partie où tu utilises « Indice » n'est pas classée.</p>
 </div>
 
 <div id="game" class="gwrap screen hidden">
@@ -211,7 +211,6 @@ h2{font-size:17px;margin:22px 0 10px}
   <div class="pl" id="plBot"><div class="av"></div><div><div class="nm"></div><div class="cap"></div></div><div class="clock"></div></div>
   <div class="status" id="status"></div>
   <div class="ctr">
-    <button id="bUndo">↶ Annuler</button>
     <button id="bHint">Indice</button>
     <button id="bFlip">⇅ Tourner</button>
     <button id="bResign">Abandon</button>
@@ -447,7 +446,7 @@ function renderBoard(){const from=sel!==null?G.moves().filter(m=>m.f===sel):[],c
   $('board').innerHTML=h}
 function renderMoves(){let h='';for(let i=0;i<hist.length;i+=2)h+=`<span><i>${i/2+1}.</i> ${hist[i]}${hist[i+1]?' '+hist[i+1]:''}</span>`;
   const el=$('moves');el.innerHTML=h||'<i>Les coups apparaîtront ici.</i>';el.scrollTop=el.scrollHeight}
-function renderButtons(){$('bUndo').disabled=!!online||over||thinking||!hist.length||(hist.length===1&&userColor==='b');$('bHint').textContent=online?'Nulle ?':'Indice';$('bHint').disabled=online?(over||!!(online.st&&online.st.offre_nulle)):(over||thinking||G.turn!==userColor);$('bResign').disabled=over;$('bMenu').disabled=!!online&&!over}
+function renderButtons(){$('bHint').textContent=online?'Nulle ?':'Indice';$('bHint').disabled=online?(over||!!(online.st&&online.st.offre_nulle)):(over||thinking||G.turn!==userColor);$('bResign').disabled=over;$('bMenu').disabled=!!online&&!over}
 function renderAll(){renderBoard();renderPanels();renderMoves();renderClocks();renderButtons();
   if(!over&&!thinking)setStatus(G.turn===userColor?(G.inCheck()?'Échec ! À toi de jouer.':'À toi de jouer.'):(online?`Au tour de ${bot.name}…`:''))}
 
@@ -471,8 +470,6 @@ $('board').addEventListener('click',e=>{const s=e.target.closest('.sq');if(!s||o
 function askPromo(c){const w=userColor==='w';$('promoBtns').innerHTML=['q','r','b','n'].map(t=>`<button data-t="${t}"><span class="pc ${w?'w':'b'}" style="font-size:44px">${GLY[t]}</span></button>`).join('');
   $('promoModal').classList.remove('hidden');$('promoBtns').onclick=e=>{const b=e.target.closest('button');if(!b)return;$('promoModal').classList.add('hidden');doMove(c.find(m=>m.pr.toLowerCase()===b.dataset.t))}}
 
-$('bUndo').addEventListener('click',()=>{if(over||thinking||!hist.length)return;rated=false;hintMove=null;sel=null;undoOne();
-  if(G.turn!==userColor&&hist.length)undoOne();renderAll();if(G.turn!==userColor)botTurn()});
 $('bHint').addEventListener('click',()=>{if(online)return onlineAction('offrir_nulle');if(over||thinking||G.turn!==userColor)return;rated=false;setStatus('Je cherche le meilleur coup…');
   setTimeout(()=>{hintMove=think(G,800,5);renderBoard();setStatus('Indice : '+G.san(hintMove,G.moves()))},40)});
 $('bFlip').addEventListener('click',()=>{flipped=!flipped;renderAll()});
@@ -488,7 +485,7 @@ function finish(res,why){if(over)return;over=true;thinking=false;token++;clearIn
       .catch(e=>{$('endElo').textContent=`Elo : ${rating}`;$('endNote').textContent='Non enregistré : '+e.message})}
   else if(rated){const exp=1/(1+Math.pow(10,Math.max(-400,Math.min(400,bot.elo-rating))/400)),old=rating,K=rec.w+rec.d+rec.l<30?40:rating>=2400?10:20;rating=Math.max(0,Math.round(rating+K*(sc-exp)));const d=rating-old;
     eloTxt=`Elo : ${rating} (${d>=0?'+':''}${d})`;rec[res==='win'?'w':res==='draw'?'d':'l']++;LS.set('ech_elo',rating);LS.set('ech_rec',rec);if(DB_ON)note='Partie hors ligne : non comptée dans le classement.'}
-  else{if(profile)saveGame(res,false,why).catch(()=>{});eloTxt=`Elo : ${rating}`;note=friendly?'Partie amicale : ton Elo ne change pas.':'Partie non classée (annulation ou indice utilisé).'}
+  else{if(profile)saveGame(res,false,why).catch(()=>{});eloTxt=`Elo : ${rating}`;note=friendly?'Partie amicale : ton Elo ne change pas.':'Partie non classée (indice utilisé).'}
   say(line(res==='win'?'lose':res==='draw'?'draw':'win'));
   $('endTitle').textContent=res==='win'?'Victoire !':res==='draw'?'Match nul':'Défaite';
   $('endWhy').textContent=(res==='win'?'Tu gagnes ':res==='draw'?'Nulle ':`${bot.name} gagne `)+why+'.';
