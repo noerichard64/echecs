@@ -555,7 +555,7 @@ async function rpc(fn,args){const h={'apikey':DB.key,'Content-Type':'application
   const t=await r.text();let d=null;try{d=t?JSON.parse(t):null}catch(e){}
   if(!r.ok)throw new Error((d&&(d.message||d.hint))||'Connexion au serveur impossible.');return d}
 function applyStats(s){rating=s.elo;rec={w:s.victoires,d:s.nulles,l:s.defaites};profile.best=s.meilleure_victoire}
-function show(id){for(const s of['login','menu','ranking','game','lobby','room'])$(s).classList.toggle('hidden',s!==id)}
+function show(id){for(const s of['login','menu','ranking','game','lobby','room'])$(s).classList.toggle('hidden',s!==id);if(typeof presence==='function'&&presTimer)setTimeout(presence,50)}
 function goMenu(){if(typeof stopOnline==='function')stopOnline();if(online){online=null;bot=BOTS[botI]}$('bAgain').textContent='Rejouer';show('menu');renderMenu()}
 async function doLogin(nom,pin,silent){$('lgErr').textContent='';$('lgBtn').disabled=true;$('lgBtn').textContent='Connexion…';
   try{const s=await rpc('connexion',{p_nom:nom,p_pin:pin});profile={nom:s.nom,pin};applyStats(s);LS.set('ech_prof',{nom:s.nom,pin});goMenu()}
@@ -698,9 +698,19 @@ function memoryMove(g,b){if(!botMem||botMem.elo!==b.elo)return null;
   for(const s of sc){const st=node[uci(s.m)];let v=s.v+(Math.random()*2-1)*(b.noise||8);if(st)v+=pen*(st.w*0.5-st.l*1.5);if(v>bv){bv=v;best=s.m}}
   return best}
 
+
+/* ---------- présence en direct (pour savoir qui joue avant une mise à jour) ---------- */
+const SESSION=(()=>{try{return crypto.randomUUID()}catch(e){return 'id-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10)}})();
+let presTimer=null;
+function presence(){if(!DB_ON)return;let a='menu',d=null;
+  if(!$('game').classList.contains('hidden')){a=over?'fin':online?'en_ligne':'bot';d=bot&&bot.name?bot.name:null}
+  else if(!$('room').classList.contains('hidden')||!$('lobby').classList.contains('hidden'))a='salon';
+  rpc('signaler_presence',{p_session:SESSION,p_nom:profile?profile.nom:null,p_pin:profile?profile.pin:null,p_activite:a,p_detail:d}).catch(()=>{})}
+function startPresence(){if(!DB_ON||presTimer)return;presence();presTimer=setInterval(presence,30000)}
+
 $('bBoard').addEventListener('click',openBoard);$('bLogout').addEventListener('click',logout);
 {const sv=LS.get('ech_prof',null);if(!DB_ON)goMenu();else if(sv&&sv.nom&&typeof sv.pin==='string'){show('menu');renderMenu();doLogin(sv.nom,sv.pin,true)}else show('login')}
-syncKvp();setTimeout(syncKvp,1500);
+syncKvp();setTimeout(syncKvp,1500);startPresence();
 window.__test={Chess,botMove,think,BOTS};
 }
 </script>
