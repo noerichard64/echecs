@@ -3,6 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232a1f15'/%3E%3Cg fill='%23e0b04f'%3E%3Ccircle cx='32' cy='19' r='8'/%3E%3Cpath d='M25.5 28h13l-2 3c3.5 4 5.5 10.5 6 17.5h-21c.5-7 2.5-13.5 6-17.5z'/%3E%3Crect x='17' y='48' width='30' height='4.5' rx='1.5'/%3E%3Crect x='14' y='52' width='36' height='5.5' rx='2'/%3E%3C/g%3E%3C/svg%3E">
+<meta name="theme-color" content="#1b1611">
 <title>San Andreas Chess Federation</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -99,8 +101,6 @@ h2{font-size:17px;margin:22px 0 10px}
 .vol input{flex:1;accent-color:var(--brass);height:30px}
 .sayrow{display:flex;align-items:center;gap:8px;flex:none}
 .sayrow .say{flex:1}
-#gMusic{flex:none;width:40px;height:32px;border-radius:9px;border:0;background:var(--panel);font-size:17px;line-height:1}
-#gMusic.off{opacity:.45;text-decoration:line-through}
 
 .field{display:grid;gap:6px;margin-bottom:14px}
 .field span{font-size:14px;color:var(--mute)}
@@ -198,20 +198,13 @@ h2{font-size:17px;margin:22px 0 10px}
   <div class="seg" id="tcSeg"></div>
   <div id="rkBox"><h2>Type de partie</h2>
   <div class="seg" id="rkSeg"></div></div>
-  <h2>Musique de fond</h2>
-  <div class="music">
-    <div class="mrow"><button class="sw" id="mToggle" aria-label="Activer la musique"></button><span id="mNow"></span></div>
-    <div class="seg" id="mMode"></div>
-    <div class="tracks" id="mTracks"></div>
-    <label class="vol">Volume <input type="range" id="mVol" min="0" max="100" step="5"></label>
-  </div>
   <button class="big" id="playBtn">Jouer</button>
   <p class="note">Les Elo des bots sont approximatifs. Une partie où tu utilises « Annuler » ou « Indice » n'est pas classée.</p>
 </div>
 
 <div id="game" class="gwrap screen hidden">
   <div class="pl" id="plTop"><div class="av"></div><div><div class="nm"></div><div class="cap"></div></div><div class="clock"></div></div>
-  <div class="sayrow"><div class="say" id="say"></div><button id="gMusic" aria-label="Couper ou remettre la musique">♪</button></div>
+  <div class="sayrow"><div class="say" id="say"></div></div>
   <div class="board" id="board"></div>
   <div class="pl" id="plBot"><div class="av"></div><div><div class="nm"></div><div class="cap"></div></div><div class="clock"></div></div>
   <div class="status" id="status"></div>
@@ -395,7 +388,7 @@ function loadPrefs(){if(!profile){rating=LS.get('ech_elo',0);rec=LS.get('ech_rec
 loadPrefs();
 let synced=false;
 function syncKvp(){if(synced)return;nui('echecs:load').then(d=>{if(!d||typeof d!=='object')return;synced=true;
-  for(const k in d){try{STORE[k]=JSON.parse(d[k])}catch(e){}}loadPrefs();if(!$('menu').classList.contains('hidden'))renderMenu();if(typeof syncMusic==='function')syncMusic()}).catch(()=>{})}
+  for(const k in d){try{STORE[k]=JSON.parse(d[k])}catch(e){}}loadPrefs();if(!$('menu').classList.contains('hidden'))renderMenu()}).catch(()=>{})}
 window.addEventListener('message',e=>{if(e.data==='componentsLoaded')syncKvp()});
 const $=id=>document.getElementById(id);
 const line=(k)=>pick((bot[k]||GEN[k]));
@@ -503,61 +496,6 @@ function finish(res,why){if(over)return;over=true;thinking=false;token++;clearIn
 $('bAgain').addEventListener('click',()=>{if(online){$('endModal').classList.add('hidden');openLobby()}else startGame()});
 $('bOther').addEventListener('click',()=>{$('endModal').classList.add('hidden');goMenu()});
 $('bLook').addEventListener('click',()=>$('endModal').classList.add('hidden'));
-
-
-/* ---------- musique de fond ---------- */
-/* Pour ajouter / renommer une musique : déposer le .mp3 dans le dossier musique/ et l'ajouter ici. */
-const TRACKS=[
- {file:'musique/lofi.mp3',name:'Lo-fi du club',style:'Lo-fi'},
- {file:'musique/jazz.mp3',name:'Jazz du soir',style:'Jazz'},
- {file:'musique/classique.mp3',name:'Grand salon',style:'Classique'},
- {file:'musique/synthwave.mp3',name:'Néon 64',style:'Synthwave'},
- {file:'musique/epique.mp3',name:'Le dernier roi',style:'Épique'},
- {file:'musique/metal.mp3',name:'Échec et métal',style:'Metal'},
-];
-const MMODES=[['one','En boucle'],['list','Playlist'],['shuffle','Aléatoire']];
-let mOn,mMode,mTrack,mVol;
-function syncMusic(){mOn=LS.get('ech_mon',true);mMode=LS.get('ech_mmode','one');mTrack=Math.min(LS.get('ech_mtrk',0),TRACKS.length-1);mVol=LS.get('ech_mvol',40);setVol();renderMusic()}
-const bad=new Set(),au=new Audio();au.preload='none';let mUnlocked=false,mFails=0;
-/* Mode « En boucle » : Web Audio, boucle à l'échantillon près (aucun blanc à la jonction) */
-let wa=null,waGain=null,waSrc=null,waCache=null,waTok=0,waPlaying=false;
-function waInit(){try{if(!wa){wa=new(window.AudioContext||window.webkitAudioContext)();waGain=wa.createGain();waGain.connect(wa.destination)}if(wa.state==='suspended')wa.resume()}catch(e){}setVol()}
-function waStop(){waTok++;if(waSrc){try{waSrc.stop()}catch(e){}try{waSrc.disconnect()}catch(e){}waSrc=null}waPlaying=false}
-function trimBounds(buf){const d=buf.getChannelData(0);let a=0,b=d.length-1;while(a<b&&Math.abs(d[a])<1e-4)a++;while(b>a&&Math.abs(d[b])<1e-4)b--;return[a/buf.sampleRate,(b+1)/buf.sampleRate]}
-async function waPlay(i){waStop();waInit();const tok=waTok;
-  try{let buf=waCache&&waCache.i===i?waCache.buf:null;
-    if(!buf){const r=await fetch(TRACKS[i].file);if(!r.ok)throw 0;const ab=await r.arrayBuffer();if(tok!==waTok)return;buf=await wa.decodeAudioData(ab);waCache={i,buf}}
-    if(tok!==waTok)return;const s=wa.createBufferSource(),[a,b]=trimBounds(buf);s.buffer=buf;s.loop=true;s.loopStart=a;s.loopEnd=b;s.connect(waGain);s.start(0,a);
-    waSrc=s;waPlaying=true;bad.delete(i)}
-  catch(e){if(tok===waTok){waPlaying=false;bad.add(i)}}renderMusic()}
-function setVol(){au.volume=(mVol||0)/100;if(waGain)waGain.gain.value=(mVol||0)/100}
-function playing(){return mMode==='one'?waPlaying:!au.paused}
-function mNext(){if(mMode==='shuffle'&&TRACKS.length>1){let n;do{n=Math.floor(Math.random()*TRACKS.length)}while(n===mTrack);return n}return (mTrack+1)%TRACKS.length}
-function mLoad(i){mTrack=i;LS.set('ech_mtrk',i);
-  if(mMode==='one'){au.pause();if(mOn&&mUnlocked)waPlay(i)}
-  else{waStop();au.src=TRACKS[i].file;au.loop=false;setVol();if(mOn&&mUnlocked)au.play().catch(()=>{})}
-  renderMusic()}
-function mPlay(){if(!mOn||!mUnlocked)return;if(mMode==='one'){if(!waPlaying)mLoad(mTrack)}else if(!au.src)mLoad(mTrack);else au.play().catch(()=>{});renderMusic()}
-au.addEventListener('ended',()=>{if(mMode!=='one')mLoad(mNext())});
-au.addEventListener('playing',()=>{mFails=0;bad.delete(mTrack);renderMusic()});
-au.addEventListener('pause',()=>renderMusic());
-au.addEventListener('error',()=>{if(!au.getAttribute('src')||mMode==='one')return;bad.add(mTrack);renderMusic();
-  if(++mFails<TRACKS.length)setTimeout(()=>mLoad(mNext()),300)});
-function unlockMusic(){waInit();if(mUnlocked)return;mUnlocked=true;mPlay()}
-document.addEventListener('pointerdown',unlockMusic,{capture:true});
-function renderMusic(){const t=$('mToggle');if(!t||mOn===undefined)return;t.classList.toggle('on',mOn);
-  const cur=TRACKS[mTrack];
-  $('mNow').innerHTML=!mOn?'Musique coupée':bad.has(mTrack)?`<b>${cur.name}</b><br>Fichier introuvable (musique/…)`:`<b>${cur.name}</b> · ${cur.style}<br>${MMODES.find(m=>m[0]===mMode)[1]}`;
-  $('mMode').innerHTML=MMODES.map(([k,l])=>`<button class="${k===mMode?'on':''}" data-k="${k}">${l}</button>`).join('');
-  $('mTracks').innerHTML=TRACKS.map((tr,i)=>`<button class="trk${i===mTrack?' on':''}${bad.has(i)?' bad':''}" data-i="${i}">${i===mTrack&&mOn&&playing()?'♪ ':''}${tr.name}<small>${tr.style}</small></button>`).join('');
-  $('mVol').value=mVol;const g=$('gMusic');if(g)g.classList.toggle('off',!mOn)}
-function setMusic(on){mOn=on;LS.set('ech_mon',on);if(on){mUnlocked=true;waInit();mPlay()}else{au.pause();waStop()}renderMusic()}
-$('mToggle').addEventListener('click',()=>setMusic(!mOn));
-$('gMusic').addEventListener('click',()=>setMusic(!mOn));
-$('mMode').addEventListener('click',e=>{const b=e.target.closest('button');if(!b||b.dataset.k===mMode)return;mMode=b.dataset.k;LS.set('ech_mmode',mMode);mFails=0;if(mOn&&mUnlocked)mLoad(mTrack);else renderMusic()});
-$('mTracks').addEventListener('click',e=>{const b=e.target.closest('.trk');if(!b)return;mFails=0;if(!mOn){mOn=true;LS.set('ech_mon',true)}mUnlocked=true;waInit();mLoad(+b.dataset.i)});
-$('mVol').addEventListener('input',e=>{mVol=+e.target.value;setVol();LS.set('ech_mvol',mVol)});
-syncMusic();
 
 
 /* ---------- profil en ligne (Supabase) ---------- */
