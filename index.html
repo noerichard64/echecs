@@ -121,6 +121,15 @@ h2{font-size:17px;margin:22px 0 10px}
 .top{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .top h1{margin:0;font-size:26px;flex:1}
 .top button{min-height:40px;border-radius:10px;border:0;background:var(--panel);padding:0 12px;font-weight:600}
+
+.btn2{width:100%;min-height:50px;margin-top:10px;border-radius:14px;border:2px solid var(--panel2);background:var(--panel);font-weight:700;font-size:16px}
+.btn2.hl{border-color:var(--brass)}
+.join{min-height:40px;border:0;border-radius:10px;background:var(--brass);color:#1b1611;font-weight:700;padding:0 14px}
+.slot{display:flex;align-items:center;gap:12px;background:var(--panel);border-radius:14px;padding:12px}
+.slot .wait{color:var(--mute);font-style:italic}
+.slot small{display:block;color:var(--mute);font-size:12px}
+.say span button{margin:4px 6px 0 0;min-height:34px;border:0;border-radius:8px;padding:0 10px;font-weight:700;background:var(--brass);color:#1b1611}
+.say span button.no{background:var(--panel);color:var(--ink)}
 @media (prefers-reduced-motion:no-preference){.say span{animation:pop .25s ease-out}@keyframes pop{from{transform:scale(.85);opacity:0}}}
 </style>
 </head>
@@ -146,11 +155,36 @@ h2{font-size:17px;margin:22px 0 10px}
   <div class="lb" id="lbList"></div>
 </div>
 
+<div id="lobby" class="wrap screen hidden">
+  <div class="top"><h1>En ligne</h1><button id="obBack">Retour</button></div>
+  <p class="sub">Crée une partie publique ou rejoins celle d'un autre joueur.</p>
+  <div class="music">
+    <b>Créer une partie</b>
+    <div class="seg" id="obCol"></div>
+    <div class="seg" id="obTc"></div>
+    <div class="seg" id="obRk"></div>
+    <button class="big" id="obCreate" style="margin-top:2px">Créer la partie</button>
+  </div>
+  <h2>Parties en attente</h2>
+  <p class="err" id="obErr"></p>
+  <div class="lb" id="obList"></div>
+</div>
+
+<div id="room" class="wrap screen hidden">
+  <div class="top"><h1>Salon</h1></div>
+  <p class="sub" id="rmInfo"></p>
+  <div class="lb" id="rmSlots"></div>
+  <p class="err" id="rmErr"></p>
+  <button class="big" id="rmStart">Lancer la partie</button>
+  <button class="btn2" id="rmLeave">Quitter le salon</button>
+</div>
+
 <div id="menu" class="wrap screen hidden">
   <h1>Échecs contre les bots</h1>
   <p class="sub">Du bot à 1 Elo jusqu'au Grand Maître.</p>
   <div class="me"><div><small id="myName">Ton classement</small><b id="myElo">800</b></div><div id="myRec" style="margin-left:auto;text-align:right;color:var(--mute);font-size:14px"></div></div>
   <div class="mebtns" id="meBtns"><button id="bBoard">Classement</button><button id="bLogout">Changer de profil</button></div>
+  <button class="btn2 hl" id="bOnline">Jouer contre un vrai joueur</button>
   <h2>Adversaire</h2>
   <div class="bots" id="botList"></div>
   <h2>Ta couleur</h2>
@@ -356,7 +390,7 @@ let G,bot,userColor='w',flipped=false,sel=null,lastMove=null,hist=[],over=false,
 let clocks={w:0,b:0},inc=0,timed=false,timer=null,lastTick=0,token=0,resignArm=null,actx=null;
 
 function renderMenu(){
-  $('myElo').textContent=rating;$('myName').textContent=profile?profile.nom+' · Elo':(DB_ON?'Hors ligne · Elo':'Ton classement');$('meBtns').classList.toggle('hidden',!DB_ON);$('bLogout').textContent=profile?'Changer de profil':'Se connecter';$('myRec').innerHTML=`${rec.w} victoires<br>${rec.d} nulles · ${rec.l} défaites`;
+  $('myElo').textContent=rating;$('myName').textContent=profile?profile.nom+' · Elo':(DB_ON?'Hors ligne · Elo':'Ton classement');$('meBtns').classList.toggle('hidden',!DB_ON);$('bOnline').classList.toggle('hidden',!DB_ON);$('bLogout').textContent=profile?'Changer de profil':'Se connecter';$('myRec').innerHTML=`${rec.w} victoires<br>${rec.d} nulles · ${rec.l} défaites`;
   $('botList').innerHTML=BOTS.map((b,i)=>`<button class="bot${i===botI?' on':''}" data-i="${i}"><div class="av" style="background:${b.c}">${initials(b.name)}</div><div><div class="n">${b.name}</div><div class="d">${b.d}</div></div><div class="e">${b.elo}</div></button>`).join('');
   $('colSeg').innerHTML=COLS.map(([k,l])=>`<button class="${k===colC?'on':''}" data-k="${k}">${l}</button>`).join('');
   $('rkBox').classList.toggle('hidden',!profile);$('rkSeg').innerHTML=[['1','Classée'],['0','Amicale (sans Elo)']].map(([k,l])=>`<button class="${(k==='1')===ranked?'on':''}" data-k="${k}">${l}</button>`).join('');
@@ -375,11 +409,11 @@ function startGame(){
   say(line('hello'));renderAll();lastTick=performance.now();clearInterval(timer);timer=setInterval(tick,100);
   $('menu').scrollTop=0;if(G.turn!==userColor)botTurn()}
 
-function say(t){$('say').innerHTML=`<div class="av" style="width:26px;height:26px;font-size:11px;background:${bot.c}">${initials(bot.name)}</div><span>${t}</span>`}
+function say(t){$('say').innerHTML=`<div class="av" style="width:26px;height:26px;font-size:11px;background:${bot.c}">${esc(initials(bot.name))}</div><span>${t}</span>`}
 function setStatus(t){$('status').textContent=t}
 function fmt(ms){if(ms<20000){return (ms/1000).toFixed(1)}const s=Math.ceil(ms/1000);return Math.floor(s/60)+':'+String(s%60).padStart(2,'0')}
 
-function tick(){if(!timed||over)return;const now=performance.now(),dt=now-lastTick;lastTick=now;clocks[G.turn]-=dt;
+function tick(){if(online)return onlineTick();if(!timed||over)return;const now=performance.now(),dt=now-lastTick;lastTick=now;clocks[G.turn]-=dt;
   if(clocks[G.turn]<=0){clocks[G.turn]=0;finish(G.turn===userColor?'loss':'win','au temps')}renderClocks()}
 function renderClocks(){for(const[id,c]of[['plTop',flipped?'w':'b'],['plBot',flipped?'b':'w']]){const el=$(id).querySelector('.clock');
   if(!timed){el.classList.add('hidden');continue}el.classList.remove('hidden');el.textContent=fmt(clocks[c]);
@@ -391,7 +425,7 @@ function capStr(by){const o=opp(by),init={q:1,r:2,b:2,n:2,p:8};let s='';
   const diff=Math.round((material(by)-material(o))/100);return s+(diff>0?` <b style="color:var(--ink)">+${diff}</b>`:'')}
 function renderPanels(){for(const[id,c]of[['plTop',flipped?'w':'b'],['plBot',flipped?'b':'w']]){const el=$(id),isBot=c!==userColor,av=el.querySelector('.av');
   av.style.background=isBot?bot.c:'var(--brass)';av.textContent=isBot?initials(bot.name):'TOI';
-  el.querySelector('.nm').textContent=isBot?`${bot.name} (${bot.elo})`:`${profile?esc(profile.nom):'Toi'} (${rating})`;el.querySelector('.cap').innerHTML=capStr(c)}}
+  el.querySelector('.nm').textContent=isBot?`${bot.name} (${bot.elo})`:`${profile?profile.nom:'Toi'} (${rating})`;el.querySelector('.cap').innerHTML=capStr(c)}}
 function renderBoard(){const from=sel!==null?G.moves().filter(m=>m.f===sel):[],chk=G.inCheck()?G.kingSq(G.turn):-1;let h='';
   for(let v=0;v<64;v++){const i=flipped?63-v:v,r=i>>3,c=i&7;let cls='sq '+((r+c)%2?'d':'l');
     if(lastMove&&(i===lastMove.f||i===lastMove.t))cls+=' last';if(i===sel)cls+=' sel';if(hintMove&&(i===hintMove.f||i===hintMove.t))cls+=' hint';if(i===chk)cls+=' chk';
@@ -402,15 +436,15 @@ function renderBoard(){const from=sel!==null?G.moves().filter(m=>m.f===sel):[],c
   $('board').innerHTML=h}
 function renderMoves(){let h='';for(let i=0;i<hist.length;i+=2)h+=`<span><i>${i/2+1}.</i> ${hist[i]}${hist[i+1]?' '+hist[i+1]:''}</span>`;
   const el=$('moves');el.innerHTML=h||'<i>Les coups apparaîtront ici.</i>';el.scrollTop=el.scrollHeight}
-function renderButtons(){$('bUndo').disabled=over||thinking||!hist.length||(hist.length===1&&userColor==='b');$('bHint').disabled=over||thinking||G.turn!==userColor;$('bResign').disabled=over}
+function renderButtons(){$('bUndo').disabled=!!online||over||thinking||!hist.length||(hist.length===1&&userColor==='b');$('bHint').textContent=online?'Nulle ?':'Indice';$('bHint').disabled=online?(over||!!(online.st&&online.st.offre_nulle)):(over||thinking||G.turn!==userColor);$('bResign').disabled=over;$('bMenu').disabled=!!online&&!over}
 function renderAll(){renderBoard();renderPanels();renderMoves();renderClocks();renderButtons();
-  if(!over&&!thinking)setStatus(G.turn===userColor?(G.inCheck()?'Échec ! À toi de jouer.':'À toi de jouer.'):'')}
+  if(!over&&!thinking)setStatus(G.turn===userColor?(G.inCheck()?'Échec ! À toi de jouer.':'À toi de jouer.'):(online?`Au tour de ${bot.name}…`:''))}
 
 function unlockAudio(){try{if(!actx)actx=new(window.AudioContext||window.webkitAudioContext)();if(actx.state==='suspended')actx.resume()}catch(e){}}
 function sound(cap){try{if(!actx)return;const o=actx.createOscillator(),g=actx.createGain(),t=actx.currentTime;o.type='triangle';o.frequency.value=cap?520:300;
   g.gain.setValueAtTime(.25,t);g.gain.exponentialRampToValueAtTime(.001,t+.12);o.connect(g).connect(actx.destination);o.start(t);o.stop(t+.13)}catch(e){}}
 
-function doMove(m){const mover=G.turn;hist.push(G.san(m,G.moves()));G.make(m);G.keys.push(G.key());lastMove=m;sel=null;
+function doMove(m){if(online)return onlineMove(m);const mover=G.turn;hist.push(G.san(m,G.moves()));G.make(m);G.keys.push(G.key());lastMove=m;sel=null;
   if(timed)clocks[mover]+=inc*1000;sound(!!m.x);
   if(mover===userColor&&m.x&&VAL[m.x.toLowerCase()]>=300&&Math.random()<.5)say(line('ouch'));
   const st=G.status();if(st){renderAll();if(st==='mate')finish(G.turn===userColor?'loss':'win','par échec et mat');
@@ -428,12 +462,12 @@ function askPromo(c){const w=userColor==='w';$('promoBtns').innerHTML=['q','r','
 
 $('bUndo').addEventListener('click',()=>{if(over||thinking||!hist.length)return;rated=false;hintMove=null;sel=null;undoOne();
   if(G.turn!==userColor&&hist.length)undoOne();renderAll();if(G.turn!==userColor)botTurn()});
-$('bHint').addEventListener('click',()=>{if(over||thinking||G.turn!==userColor)return;rated=false;setStatus('Je cherche le meilleur coup…');
+$('bHint').addEventListener('click',()=>{if(online)return onlineAction('offrir_nulle');if(over||thinking||G.turn!==userColor)return;rated=false;setStatus('Je cherche le meilleur coup…');
   setTimeout(()=>{hintMove=think(G,800,5);renderBoard();setStatus('Indice : '+G.san(hintMove,G.moves()))},40)});
 $('bFlip').addEventListener('click',()=>{flipped=!flipped;renderAll()});
 $('bResign').addEventListener('click',()=>{const b=$('bResign');if(over)return;
   if(!resignArm){b.textContent='Sûr ?';b.classList.add('warn');resignArm=setTimeout(()=>{resignArm=null;b.textContent='Abandon';b.classList.remove('warn')},3000);return}
-  clearTimeout(resignArm);resignArm=null;b.textContent='Abandon';b.classList.remove('warn');finish('loss','par abandon')});
+  clearTimeout(resignArm);resignArm=null;b.textContent='Abandon';b.classList.remove('warn');if(online)onlineAction('abandon');else finish('loss','par abandon')});
 $('bMenu').addEventListener('click',()=>{token++;over=true;clearInterval(timer);goMenu()});
 
 function finish(res,why){if(over)return;over=true;thinking=false;token++;clearInterval(timer);
@@ -450,7 +484,7 @@ function finish(res,why){if(over)return;over=true;thinking=false;token++;clearIn
   $('endElo').textContent=eloTxt;$('endNote').textContent=note;
   renderAll();setStatus($('endTitle').textContent+' '+$('endWhy').textContent);
   setTimeout(()=>$('endModal').classList.remove('hidden'),res==='loss'&&why==='par abandon'?0:500)}
-$('bAgain').addEventListener('click',startGame);
+$('bAgain').addEventListener('click',()=>{if(online){$('endModal').classList.add('hidden');openLobby()}else startGame()});
 $('bOther').addEventListener('click',()=>{$('endModal').classList.add('hidden');goMenu()});
 $('bLook').addEventListener('click',()=>$('endModal').classList.add('hidden'));
 
@@ -520,8 +554,8 @@ async function rpc(fn,args){const h={'apikey':DB.key,'Content-Type':'application
   const t=await r.text();let d=null;try{d=t?JSON.parse(t):null}catch(e){}
   if(!r.ok)throw new Error((d&&(d.message||d.hint))||'Connexion au serveur impossible.');return d}
 function applyStats(s){rating=s.elo;rec={w:s.victoires,d:s.nulles,l:s.defaites};profile.best=s.meilleure_victoire}
-function show(id){for(const s of['login','menu','ranking','game'])$(s).classList.toggle('hidden',s!==id)}
-function goMenu(){show('menu');renderMenu()}
+function show(id){for(const s of['login','menu','ranking','game','lobby','room'])$(s).classList.toggle('hidden',s!==id)}
+function goMenu(){if(typeof stopOnline==='function')stopOnline();if(online){online=null;bot=BOTS[botI]}$('bAgain').textContent='Rejouer';show('menu');renderMenu()}
 async function doLogin(nom,pin,silent){$('lgErr').textContent='';$('lgBtn').disabled=true;$('lgBtn').textContent='Connexion…';
   try{const s=await rpc('connexion',{p_nom:nom,p_pin:pin});profile={nom:s.nom,pin};applyStats(s);LS.set('ech_prof',{nom:s.nom,pin});goMenu()}
   catch(e){if(silent){show('login');$('lgNom').value=nom}$('lgErr').textContent=e.message||'Erreur de connexion.'}
@@ -536,6 +570,112 @@ async function openBoard(){show('ranking');$('lbErr').textContent='';$('lbList')
 $('lbBack').addEventListener('click',goMenu);$('lbRefresh').addEventListener('click',openBoard);
 async function saveGame(res){if(!profile)return null;
   const s=await rpc('enregistrer_partie',{p_nom:profile.nom,p_pin:profile.pin,p_bot_elo:bot.elo,p_resultat:res});applyStats(s);return s}
+
+
+/* ---------- parties en ligne entre joueurs ---------- */
+let online=null,lobbyTimer=null,roomTimer=null,roomId=null,onC='r',onTc=0,onRk=true;
+const ON_COL=[['w','Blancs'],['r','Au hasard'],['b','Noirs']];
+const tcLabel=(m,i)=>m?`${m} min${i?' + '+i+' s':''}`:'Sans pendule';
+const uci=m=>sqName(m.f)+sqName(m.t)+(m.pr?m.pr.toLowerCase():'');
+const auth=()=>({p_nom:profile.nom,p_pin:profile.pin});
+function stopOnline(){clearInterval(lobbyTimer);clearInterval(roomTimer);lobbyTimer=roomTimer=null}
+function openLobby(){stopOnline();online=null;roomId=null;
+  if(!profile){show('login');$('lgErr').textContent='Connecte-toi avec un pseudo pour jouer contre d\'autres joueurs.';return}
+  show('lobby');renderLobbyForm();refreshLobby();lobbyTimer=setInterval(refreshLobby,3000)}
+function renderLobbyForm(){
+  $('obCol').innerHTML=ON_COL.map(([k,l])=>`<button class="${k===onC?'on':''}" data-k="${k}">${l}</button>`).join('');
+  $('obTc').innerHTML=TC.map((t,i)=>`<button class="${i===onTc?'on':''}" data-i="${i}">${t.l}</button>`).join('');
+  $('obRk').innerHTML=[['1','Classée'],['0','Amicale']].map(([k,l])=>`<button class="${(k==='1')===onRk?'on':''}" data-k="${k}">${l}</button>`).join('')}
+$('obCol').addEventListener('click',e=>{const b=e.target.closest('button');if(b){onC=b.dataset.k;renderLobbyForm()}});
+$('obTc').addEventListener('click',e=>{const b=e.target.closest('button');if(b){onTc=+b.dataset.i;renderLobbyForm()}});
+$('obRk').addEventListener('click',e=>{const b=e.target.closest('button');if(b){onRk=b.dataset.k==='1';renderLobbyForm()}});
+async function refreshLobby(){try{const rows=await rpc('lister_parties',{});$('obErr').textContent='';
+    const mine=profile.nom.toLowerCase();
+    $('obList').innerHTML=rows&&rows.length?rows.map(r=>{const me=r.hote.toLowerCase()===mine;
+      const col=r.couleur_choisie==='w'?'Tu joues les Noirs':r.couleur_choisie==='b'?'Tu joues les Blancs':'Couleurs au hasard';
+      return `<div class="lbr"><div class="rk">♟</div><div><div class="nm2">${esc(r.hote)} (${r.hote_elo})</div><div class="st">${tcLabel(r.minutes,r.increment)} · ${r.classee?'Classée':'Amicale'} · ${col}</div></div>${me?'<small class="st">Ta partie</small>':`<button class="join" data-id="${r.id}">Rejoindre</button>`}</div>`}).join('')
+      :'<p class="note">Aucune partie en attente pour l\'instant. Crée la tienne !</p>'}
+  catch(e){$('obErr').textContent=e.message}}
+$('obList').addEventListener('click',async e=>{const b=e.target.closest('.join');if(!b)return;b.disabled=true;
+  try{const s=await rpc('rejoindre_partie',{...auth(),p_id:b.dataset.id});enterRoom(s)}catch(err){$('obErr').textContent=err.message;refreshLobby()}});
+$('obCreate').addEventListener('click',async()=>{const t=TC[onTc];$('obCreate').disabled=true;
+  try{const s=await rpc('creer_partie',{...auth(),p_couleur:onC,p_minutes:t.m,p_increment:t.i,p_classee:onRk});enterRoom(s)}
+  catch(e){$('obErr').textContent=e.message}finally{$('obCreate').disabled=false}});
+$('obBack').addEventListener('click',()=>{stopOnline();goMenu()});
+
+function enterRoom(s){stopOnline();roomId=s.id;show('room');$('rmErr').textContent='';renderRoom(s);roomTimer=setInterval(pollRoom,1500)}
+function slot(nom,elo,role){return nom?`<div class="slot"><div class="av" style="background:${role==='Hôte'?'var(--brass)':'#8fb3ff'}">${esc(initials(nom))}</div><div><b>${esc(nom)}</b> (${elo})<small>${role}</small></div></div>`
+  :`<div class="slot"><div class="av" style="background:var(--panel2)">?</div><div class="wait">En attente d'un adversaire…</div></div>`}
+function renderRoom(s){
+  const col=s.couleur_choisie==='r'?'couleurs au hasard':`l'hôte joue les ${s.couleur_choisie==='w'?'Blancs':'Noirs'}`;
+  $('rmInfo').textContent=`${tcLabel(s.minutes,s.increment)} · ${s.classee?'Partie classée':'Partie amicale'} · ${col}`;
+  $('rmSlots').innerHTML=slot(s.hote,s.hote_elo,'Hôte')+slot(s.invite,s.invite_elo,'Adversaire');
+  $('rmStart').disabled=s.statut!=='prete';$('rmStart').textContent=s.statut==='prete'?'Lancer la partie':'En attente d\'un adversaire…'}
+async function pollRoom(){if(!roomId)return;try{const s=await rpc('etat_partie',{...auth(),p_id:roomId});
+    if(s.statut==='en_cours')return startOnlineGame(s);
+    if(s.statut==='annulee'){openLobby();$('obErr').textContent='L\'hôte a fermé la partie.';return}
+    renderRoom(s)}catch(e){$('rmErr').textContent=e.message;if(/ne fais pas partie/.test(e.message))openLobby()}}
+$('rmStart').addEventListener('click',async()=>{$('rmStart').disabled=true;
+  try{const s=await rpc('action_partie',{...auth(),p_id:roomId,p_action:'lancer'});if(s.statut==='en_cours')startOnlineGame(s)}
+  catch(e){$('rmErr').textContent=e.message;$('rmStart').disabled=false}});
+$('rmLeave').addEventListener('click',async()=>{const id=roomId;stopOnline();roomId=null;
+  try{await rpc('action_partie',{...auth(),p_id:id,p_action:'quitter'})}catch(e){}openLobby()});
+
+function pushMove(m){hist.push(G.san(m,G.moves()));G.make(m);G.keys.push(G.key());lastMove=m;sel=null;sound(!!m.x)}
+function applyServerMoves(list){let changed=false;
+  for(let i=hist.length;i<list.length;i++){const m=G.moves().find(x=>uci(x)===list[i]);if(!m){rebuild(list);return true}pushMove(m);changed=true}
+  return changed}
+function rebuild(list){G=new Chess();hist=[];lastMove=null;sel=null;for(const u of list){const m=G.moves().find(x=>uci(x)===u);if(!m)break;hist.push(G.san(m,G.moves()));G.make(m);G.keys.push(G.key());lastMove=m}}
+function startOnlineGame(s){stopOnline();roomId=null;
+  online={id:s.id,st:s,busy:false,ended:false,offerShown:null,absentShown:false,offset:s.maintenant-Date.now()};
+  const w=s.ma_couleur==='w';bot={name:w?s.noir:s.blanc,elo:w?s.noir_elo:s.blanc_elo,c:'#8fb3ff'};
+  G=new Chess();hist=[];lastMove=null;sel=null;over=false;thinking=false;rated=false;friendly=false;hintMove=null;token++;
+  userColor=s.ma_couleur;flipped=userColor==='b';timed=s.minutes>0;inc=s.increment;
+  rebuild(s.coups);syncClocks();$('endModal').classList.add('hidden');show('game');
+  say(`Partie ${s.classee?'classée':'amicale'} contre ${esc(bot.name)}. Bonne chance !`);
+  renderAll();clearInterval(timer);timer=setInterval(tick,100);roomTimer=setInterval(pollGame,1200)}
+function syncClocks(){if(!online||!timed)return;const s=online.st;if(s.statut!=='en_cours'&&s.statut!=='finie')return;
+  const run=s.statut==='en_cours',el=run?Math.max(0,Date.now()+online.offset-s.dernier_coup_le):0,t=s.coups.length%2===0?'w':'b';
+  clocks.w=Math.max(0,s.temps_blanc-(t==='w'?el:0));clocks.b=Math.max(0,s.temps_noir-(t==='b'?el:0))}
+function onlineTick(){if(over)return;syncClocks();renderClocks()}
+function onlineMove(m){if(over||G.turn!==userColor||online.busy)return;const idx=hist.length;pushMove(m);hintMove=null;
+  const st=G.status(),fin=st?(st==='mate'?'mate':st):null;online.busy=true;renderAll();
+  rpc('jouer_coup',{...auth(),p_id:online.id,p_index:idx,p_coup:uci(m),p_fin:fin})
+    .then(s=>{online.busy=false;handleOnline(s)})
+    .catch(e=>{online.busy=false;setStatus('Coup refusé : '+e.message);pollGame(true)})}
+async function pollGame(force){if(!online||online.ended||(online.busy&&!force))return;
+  try{const s=await rpc('etat_partie',{...auth(),p_id:online.id});if(online)handleOnline(s)}catch(e){setStatus('Connexion perdue, nouvel essai…')}}
+function handleOnline(s){if(!online)return;online.st=s;online.offset=s.maintenant-Date.now();
+  let changed=false;
+  if(s.coups.length>hist.length)changed=applyServerMoves(s.coups);
+  else if(s.coups.length<hist.length&&!online.busy){rebuild(s.coups);changed=true}
+  else if(s.coups.length===hist.length&&s.coups.length&&s.coups[s.coups.length-1]!==uci(lastMove||{f:0,t:0})){rebuild(s.coups);changed=true}
+  syncClocks();
+  if(s.statut==='finie')return finishOnline(s);
+  const offer=s.offre_nulle&&s.offre_nulle!==userColor?'in':s.offre_nulle===userColor?'out':null;
+  if(offer!==online.offerShown){online.offerShown=offer;
+    if(offer==='in')say(`${esc(bot.name)} te propose la nulle. <br><button data-act="accepter_nulle">Accepter</button><button class="no" data-act="refuser_nulle">Refuser</button>`);
+    else if(offer==='out')say('Proposition de nulle envoyée…');
+    else say(`À toi de jouer contre ${esc(bot.name)}.`)}
+  const absent=s.adversaire_absent_s!=null&&s.adversaire_absent_s>60;
+  if(absent&&!online.absentShown){online.absentShown=true;say(`${esc(bot.name)} semble déconnecté. <br><button data-act="reclamer">Réclamer la victoire</button>`)}
+  if(!absent)online.absentShown=false;
+  if(changed)renderAll();else{renderClocks();renderButtons()}}
+$('say').addEventListener('click',async e=>{const b=e.target.closest('button[data-act]');if(!b||!online)return;b.disabled=true;
+  try{handleOnline(await rpc('action_partie',{...auth(),p_id:online.id,p_action:b.dataset.act}))}catch(err){say(esc(err.message))}});
+function onlineAction(a){if(!online||over)return;rpc('action_partie',{...auth(),p_id:online.id,p_action:a}).then(handleOnline).catch(e=>setStatus(e.message))}
+function finishOnline(s){if(online.ended)return;online.ended=true;over=true;thinking=false;stopOnline();clearInterval(timer);
+  rebuild(s.coups);syncClocks();
+  const res=s.resultat==='d'?'draw':s.resultat===userColor?'win':'loss',d=userColor==='w'?s.delta_blanc:s.delta_noir;
+  if(s.classee&&d!=null){rating+=d;rec[res==='win'?'w':res==='draw'?'d':'l']++}
+  $('endTitle').textContent=res==='win'?'Victoire !':res==='draw'?'Match nul':'Défaite';
+  $('endWhy').textContent=(res==='win'?'Tu gagnes ':res==='draw'?'Nulle ':`${bot.name} gagne `)+(s.raison||'')+'.';
+  $('endElo').textContent=s.classee&&d!=null?`Elo : ${rating} (${d>=0?'+':''}${d})`:`Elo : ${rating}`;
+  $('endNote').textContent=s.classee?'Partie classée contre un joueur.':'Partie amicale : ton Elo ne change pas.';
+  $('bAgain').textContent='Nouvelle partie en ligne';
+  say(res==='win'?'Bien joué !':res==='draw'?'Belle partie, match nul.':'Ce sera pour la revanche.');
+  renderAll();setStatus($('endTitle').textContent+' '+$('endWhy').textContent);setTimeout(()=>$('endModal').classList.remove('hidden'),400)}
+$('bOnline').addEventListener('click',openLobby);
 
 $('bBoard').addEventListener('click',openBoard);$('bLogout').addEventListener('click',logout);
 {const sv=LS.get('ech_prof',null);if(!DB_ON)goMenu();else if(sv&&sv.nom&&typeof sv.pin==='string'){show('menu');renderMenu();doLogin(sv.nom,sv.pin,true)}else show('login')}
