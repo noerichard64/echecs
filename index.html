@@ -386,6 +386,8 @@ const LS={get(k,d){if(k in STORE)return STORE[k];try{const v=localStorage.getIte
   set(k,v){STORE[k]=v;try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}nui('echecs:save',{key:k,value:JSON.stringify(v)}).catch(()=>{})}};
 let rating,rec,botI,colC,tcI,profile=null;  // profile = {nom,pin} quand connecté en ligne
 function loadPrefs(){if(!profile){rating=LS.get('ech_elo',0);rec=LS.get('ech_rec',{w:0,d:0,l:0})}botI=Math.min(LS.get('ech_bot',3),7);colC=LS.get('ech_col','w');tcI=Math.min(LS.get('ech_tc',0),3)}
+/* passage au départ à 0 Elo : on remet une seule fois à zéro la progression hors ligne de l'ancienne version */
+if(LS.get('ech_v',0)<2){LS.set('ech_elo',0);LS.set('ech_rec',{w:0,d:0,l:0});LS.set('ech_v',2)}
 loadPrefs();
 let synced=false;
 function syncKvp(){if(synced)return;nui('echecs:load').then(d=>{if(!d||typeof d!=='object')return;synced=true;
